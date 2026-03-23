@@ -1,0 +1,33 @@
+project:
+  name: thesis
+  topic: low-data urban solar potential assessment
+  study_area: Changsha, Hunan, China
+
+paths:
+  raw_data: data/raw
+  interim_data: data/interim
+  processed_data: data/processed
+  figures: outputs/figures
+  tables: outputs/tables
+  logs: logs
+
+workflow:
+  steps:
+    - data_collection
+    - preprocessing
+    - baseline_solar_model
+    - dataset_building
+    - machine_learning
+    - mapping
+
+solar:
+  time_resolution: hourly
+  target: urban solar potential
+  weather_source_priority:
+    - NASA POWER
+    - ERA5
+    - ERA5-Land
+
+model:
+  baseline_method: simplified_physics
+  ml_target: fast urban solar potential estimation

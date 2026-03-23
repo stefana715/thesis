@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Local config / secrets
+.env
+*.env
+configs/config.local.yaml
+
+# Data artifacts that should not be tracked by default
+data/raw/*
+data/interim/*
+data/processed/*
+
+# Keep placeholders
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+
+# Output artifacts
+outputs/figures/*
+outputs/tables/*
+
+# Keep placeholders
+!outputs/figures/.gitkeep
+!outputs/tables/.gitkeep

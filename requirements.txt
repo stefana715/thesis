@@ -1,0 +1,15 @@
+geopandas
+pandas
+numpy
+rasterio
+shapely
+pyproj
+osmnx
+requests
+xarray
+cdsapi
+pvlib
+matplotlib
+scikit-learn
+pyyaml
+jupyter
