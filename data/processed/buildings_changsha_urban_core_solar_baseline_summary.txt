@@ -1,0 +1,60 @@
+Changsha Urban Core Solar Baseline Summary
+
+Input file:
+- data/processed/buildings_changsha_urban_core.geojson
+
+Output file:
+- data/processed/buildings_changsha_urban_core_solar_baseline.geojson
+
+Total buildings:
+- 18855
+
+Scoring formula:
+- area_score = minmax(log1p(footprint_area_m2))
+- height_score = minmax(log1p(height_proxy_m))
+- base_score = 0.65 * area_score + 0.35 * height_score
+- solar_potential_score = clip(base_score * category_multiplier * 100, 0, 100)
+
+Category multipliers:
+- commercial: 1.1
+- residential: 1.0
+- mixed_unknown: 0.95
+
+Class thresholds:
+- q33 = 41.797
+- q66 = 45.513
+
+Solar potential score descriptive statistics:
+- count: 18855
+- mean: 43.885
+- std: 6.674
+- min: 6.781
+- 25%: 40.516
+- 50%: 43.737
+- 75%: 46.793
+- max: 91.599
+
+Counts by solar_potential_class:
+- high: 6411 (34.00%)
+- medium: 6222 (33.00%)
+- low: 6222 (33.00%)
+
+Average score by building_category:
+- commercial: 54.674
+- mixed_unknown: 43.990
+- residential: 43.256
+
+Baseline logic explanation:
+- This Phase 1 baseline uses only local, currently available inputs.
+- It combines building footprint area and height proxy as simple structural indicators of solar opportunity.
+- A light category multiplier is applied to reflect broad differences in likely solar suitability.
+
+Limitations:
+- This is not a radiation simulation.
+- No weather, shading, facade segmentation, or ray tracing is included.
+- Height proxy values still depend partly on inferred defaults.
+
+Why this is still useful for Phase 1:
+- It provides a transparent and reproducible low-data baseline.
+- It supports spatial screening and prioritization within the Changsha urban core.
+- It establishes a first interpretable benchmark before adding more advanced inputs.
