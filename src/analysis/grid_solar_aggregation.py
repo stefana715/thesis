@@ -14,6 +14,11 @@ FIGURE_DIR = Path("figure")
 
 GRID_SIZE_M = 500  # 500m grid for aggregation
 
+GRID_SUMMARY_CSV_PATH = Path("data/processed/grid_solar_baseline_summary.csv")
+TOP10_MEAN_CSV_PATH = Path("data/processed/top10_grids_by_mean_score.csv")
+TOP10_COUNT_CSV_PATH = Path("data/processed/top10_grids_by_building_count.csv")
+TOP10_RATIO_CSV_PATH = Path("data/processed/top10_grids_by_high_potential_ratio.csv")
+
 
 def get_output_paths(output_dir: Path = OUTPUT_DIR, figure_dir: Path = FIGURE_DIR):
     return {
@@ -70,6 +75,48 @@ def save_grid_map(gdf, value_col, title, output_path):
     plt.close(fig)
 
     logging.info("Saved figure: %s", output_path)
+
+
+def export_grid_tables(grid: gpd.GeoDataFrame) -> None:
+    """Export thesis-ready grid summary and ranking tables."""
+    logging.info("Entered export_grid_tables")
+
+    table = grid.copy()
+
+    cols = [
+        "building_count",
+        "mean_solar_score",
+        "median_solar_score",
+        "std_solar_score",
+        "min_solar_score",
+        "max_solar_score",
+        "total_footprint_area_m2",
+        "mean_height_proxy_m",
+        "building_density_per_km2",
+        "footprint_density_m2_per_km2",
+        "solar_class",
+        "high_potential_ratio",
+    ]
+
+    table[cols].to_csv(GRID_SUMMARY_CSV_PATH, index=False)
+    logging.info("Saved CSV: %s", GRID_SUMMARY_CSV_PATH)
+
+    occupied = table.loc[table["building_count"] > 0].copy()
+
+    occupied.sort_values("mean_solar_score", ascending=False).head(10)[cols].to_csv(
+        TOP10_MEAN_CSV_PATH, index=False
+    )
+    logging.info("Saved CSV: %s", TOP10_MEAN_CSV_PATH)
+
+    occupied.sort_values("building_count", ascending=False).head(10)[cols].to_csv(
+        TOP10_COUNT_CSV_PATH, index=False
+    )
+    logging.info("Saved CSV: %s", TOP10_COUNT_CSV_PATH)
+
+    occupied.sort_values("high_potential_ratio", ascending=False).head(10)[cols].to_csv(
+        TOP10_RATIO_CSV_PATH, index=False
+    )
+    logging.info("Saved CSV: %s", TOP10_RATIO_CSV_PATH)
 
 
 def main() -> None:
@@ -199,6 +246,9 @@ Descriptive statistics for occupied cells:
     logging.info("Exporting summary to: %s", summary_output_path)
     summary_output_path.write_text(summary_text, encoding="utf-8")
     print(summary_text)
+
+    logging.info("About to export grid tables")
+    export_grid_tables(grid_agg_wgs84)
 
     occupied = grid_agg_wgs84[grid_agg_wgs84["building_count"] > 0].copy()
 
