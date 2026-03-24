@@ -135,7 +135,8 @@ def main() -> None:
         raise RuntimeError("Urban core became empty after clipping.")
 
     logging.info("Extracting urban-core buildings...")
-    urban_core_buildings = gpd.overlay(buildings_proj, urban_core, how="intersection")
+    urban_core_geom = urban_core[["geometry"]].copy()
+    urban_core_buildings = gpd.overlay(buildings_proj, urban_core_geom, how="intersection")
 
     if urban_core_buildings.empty:
         raise RuntimeError("No buildings intersect the extracted urban core.")
