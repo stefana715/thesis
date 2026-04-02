@@ -84,12 +84,14 @@ def export_grid_tables(grid: gpd.GeoDataFrame) -> None:
     table = grid.copy()
 
     cols = [
+        "grid_id",
         "building_count",
-        "mean_solar_score",
+        "mean_score",
         "median_solar_score",
         "std_solar_score",
         "min_solar_score",
         "max_solar_score",
+        "high_potential_building_count",
         "total_footprint_area_m2",
         "mean_height_proxy_m",
         "building_density_per_km2",
@@ -103,7 +105,7 @@ def export_grid_tables(grid: gpd.GeoDataFrame) -> None:
 
     occupied = table.loc[table["building_count"] > 0].copy()
 
-    occupied.sort_values("mean_solar_score", ascending=False).head(10)[cols].to_csv(
+    occupied.sort_values("mean_score", ascending=False).head(10)[cols].to_csv(
         TOP10_MEAN_CSV_PATH, index=False
     )
     logging.info("Saved CSV: %s", TOP10_MEAN_CSV_PATH)
@@ -127,13 +129,19 @@ def main() -> None:
         raise FileNotFoundError(f"Missing input file: {INPUT_PATH}")
 
     logging.info("Reading solar baseline dataset...")
-    gdf = gpd.read_file(INPUT_PATH)
+    buildings = gpd.read_file(INPUT_PATH)
 
-    if gdf.empty:
+    if buildings.empty:
         raise RuntimeError("Input dataset is empty.")
 
-    projected_crs = gdf.estimate_utm_crs()
-    gdf_proj = gdf.to_crs(projected_crs)
+    if "is_high_potential" not in buildings.columns:
+        raise KeyError(
+            "Missing required upstream field 'is_high_potential'. "
+            "Fix src/models/baseline_solar_potential.py first."
+        )
+
+    projected_crs = buildings.estimate_utm_crs()
+    gdf_proj = buildings.to_crs(projected_crs)
 
     logging.info("Creating building centroids...")
     centroids = gdf_proj.copy()
@@ -141,14 +149,16 @@ def main() -> None:
 
     logging.info("Building %d m aggregation grid...", GRID_SIZE_M)
     grid = make_grid(gdf_proj.total_bounds, GRID_SIZE_M, projected_crs)
+    grid["grid_id"] = grid.index
 
     logging.info("Spatial join: assigning buildings to grid cells...")
     joined = gpd.sjoin(centroids, grid, how="left", predicate="within")
 
     logging.info("Aggregating solar potential by grid cell...")
-    agg = joined.groupby("index_right").agg(
-        building_count=("solar_potential_score", "size"),
-        mean_solar_score=("solar_potential_score", "mean"),
+    agg = joined.groupby("grid_id").agg(
+        building_count=("solar_potential_score", "count"),
+        mean_score=("solar_potential_score", "mean"),
+        high_potential_building_count=("is_high_potential", "sum"),
         median_solar_score=("solar_potential_score", "median"),
         std_solar_score=("solar_potential_score", "std"),
         min_solar_score=("solar_potential_score", "min"),
@@ -157,20 +167,42 @@ def main() -> None:
         mean_height_proxy_m=("height_proxy_m", "mean"),
     ).reset_index()
 
-    # Merge back to grid geometry
-    grid_agg = grid.merge(agg, left_index=True, right_on="index_right", how="left")
+    agg["high_potential_ratio"] = (
+        agg["high_potential_building_count"] / agg["building_count"]
+    )
 
-    # Fill NaN with 0 for empty cells
-    grid_agg["building_count"] = grid_agg["building_count"].fillna(0).astype(int)
-    grid_agg["total_footprint_area_m2"] = grid_agg["total_footprint_area_m2"].fillna(0)
+    # Merge back to grid geometry
+    grid_agg = grid.merge(agg, on="grid_id", how="left")
+
+    # Explicit handling for empty cells only
+    empty_cells = grid_agg["building_count"].isna()
+
+    grid_agg.loc[empty_cells, "building_count"] = 0
+    grid_agg.loc[empty_cells, "total_footprint_area_m2"] = 0
+    grid_agg.loc[empty_cells, "high_potential_building_count"] = 0
+    grid_agg.loc[empty_cells, "high_potential_ratio"] = 0
+
+    grid_agg["building_count"] = grid_agg["building_count"].astype(int)
+    grid_agg["high_potential_building_count"] = grid_agg["high_potential_building_count"].astype(int)
+
+    # Fail loudly if occupied cells still contain NaN
+    occupied_cells = grid_agg["building_count"] > 0
+    if grid_agg.loc[occupied_cells, "high_potential_ratio"].isna().any():
+        raise ValueError(
+            "Occupied cells contain NaN in high_potential_ratio; check upstream aggregation."
+        )
 
     # Calculate density metrics
-    grid_agg["building_density_per_km2"] = grid_agg["building_count"] / (GRID_SIZE_M / 1000) ** 2
-    grid_agg["footprint_density_m2_per_km2"] = grid_agg["total_footprint_area_m2"] / (GRID_SIZE_M / 1000) ** 2
+    grid_agg["building_density_per_km2"] = (
+        grid_agg["building_count"] / (GRID_SIZE_M / 1000) ** 2
+    )
+    grid_agg["footprint_density_m2_per_km2"] = (
+        grid_agg["total_footprint_area_m2"] / (GRID_SIZE_M / 1000) ** 2
+    )
 
     # Classify grid cells
     grid_agg["solar_class"] = pd.cut(
-        grid_agg["mean_solar_score"],
+        grid_agg["mean_score"],
         bins=[0, 33, 66, 100],
         labels=["low", "medium", "high"],
         include_lowest=True
@@ -206,11 +238,13 @@ Grid configuration:
 
 Aggregation metrics per cell:
 - building_count: number of buildings
-- mean_solar_score: average solar potential score
+- mean_score: average solar potential score
 - median_solar_score: median solar potential score
 - std_solar_score: standard deviation of scores
 - min_solar_score: minimum score in cell
 - max_solar_score: maximum score in cell
+- high_potential_building_count: count of high-potential buildings in cell
+- high_potential_ratio: high_potential_building_count / building_count
 - total_footprint_area_m2: total building footprint area
 - mean_height_proxy_m: average building height
 - building_density_per_km2: buildings per km²
@@ -218,7 +252,7 @@ Aggregation metrics per cell:
 - solar_class: low/medium/high based on mean score
 
 Descriptive statistics for occupied cells:
-{grid_agg[grid_agg["building_count"] > 0][["mean_solar_score", "building_density_per_km2", "footprint_density_m2_per_km2"]].describe().to_string()}
+{grid_agg[grid_agg["building_count"] > 0][["mean_score", "building_density_per_km2", "footprint_density_m2_per_km2", "high_potential_ratio"]].describe().to_string()}
 """
 
     summary_output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -228,17 +262,6 @@ Descriptive statistics for occupied cells:
     fig_high_ratio_path = paths["fig_high_ratio_path"]
     fig_building_count_path = paths["fig_building_count_path"]
     fig_mean_score_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if "high_potential_ratio" not in grid_agg_wgs84.columns:
-        if "high_potential_building_count" in grid_agg_wgs84.columns and "building_count" in grid_agg_wgs84.columns:
-            grid_agg_wgs84["high_potential_ratio"] = 0.0
-            mask = grid_agg_wgs84["building_count"] > 0
-            grid_agg_wgs84.loc[mask, "high_potential_ratio"] = (
-                grid_agg_wgs84.loc[mask, "high_potential_building_count"]
-                / grid_agg_wgs84.loc[mask, "building_count"]
-            )
-        else:
-            grid_agg_wgs84["high_potential_ratio"] = 0.0
 
     logging.info("Exporting GeoJSON to: %s", grid_output_path)
     grid_agg_wgs84.to_file(grid_output_path, driver="GeoJSON")
@@ -254,7 +277,7 @@ Descriptive statistics for occupied cells:
 
     save_grid_map(
         occupied,
-        "mean_solar_score",
+        "mean_score",
         "Grid Mean Solar Potential Score",
         fig_mean_score_path,
     )

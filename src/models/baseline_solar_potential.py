@@ -191,13 +191,36 @@ def main() -> None:
     gdf["solar_potential_score"] = (gdf["base_score"] * gdf["category_multiplier"] * 100).clip(0, 100)
 
     q33 = gdf["solar_potential_score"].quantile(0.33)
-    q66 = gdf["solar_potential_score"].quantile(0.66)
+    gdf["solar_potential_score_num"] = pd.to_numeric(
+        gdf["solar_potential_score"], errors="coerce"
+    )
+
+    valid_scores = gdf["solar_potential_score_num"].dropna()
+    if valid_scores.empty:
+        raise ValueError("No valid numeric solar_potential_score values found.")
+
+    q66 = valid_scores.quantile(0.66)
+
+    gdf["is_high_potential"] = (
+        gdf["solar_potential_score_num"] >= q66
+    ).astype(int)
 
     logging.info("Class thresholds: q33=%.3f, q66=%.3f", q33, q66)
 
     gdf["solar_potential_class"] = gdf["solar_potential_score"].apply(
         lambda x: classify_score(x, q33, q66)
     )
+
+    required_output_fields = [
+        "solar_potential_score",
+        "solar_potential_class",
+        "is_high_potential",
+    ]
+    missing_output_fields = [
+        field for field in required_output_fields if field not in gdf.columns
+    ]
+    if missing_output_fields:
+        raise ValueError(f"Missing required output fields: {missing_output_fields}")
 
     logging.info("Saving processed baseline GeoJSON...")
     gdf.to_file(OUTPUT_GEOJSON, driver="GeoJSON")
