@@ -1,0 +1,2 @@
+bldg_spearman_rho,bldg_spearman_p,grid_spearman_rho,grid_spearman_p,mean_abs_diff,n_hp_baseline,n_hp_ablated,n_hp_to_nonhp,n_nonhp_to_hp,n_changes,change_rate_pct,mean_abs_diff_commercial,mean_abs_diff_residential,mean_abs_diff_mixed_unknown
+0.992377,0.000000,0.990315,0.000000,0.279715,6409,6275,147,13,160,0.848581,4.970405,0.000000,2.315262
