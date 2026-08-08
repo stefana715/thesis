@@ -5,6 +5,77 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.2.0] — 2026-08-09
+
+### Changed — affects reported numbers
+
+#### Annual irradiance switched to the Global Solar Atlas value
+
+`planning_metrics.py` applied a hard-coded 1,300 kWh/m²/yr whose provenance
+could not be established (see 1.1.0). It now uses **1,203.8211 kWh/m²/yr**,
+computed from `outputs/validation/gsa_comparison.csv` as the mean of `mean_ghi`
+over the 671 occupied 500 m cells (3.298140 kWh/m²/day × 365). This is
+reproducible from `src/analysis/gsa_external_validation.py`.
+
+Cross-check quoted in the source comment: NASA POWER 2001–2020 climatology at
+28.228 N, 112.939 E gives 3.2678 kWh/m²/day = 1,192.7 kWh/m²/yr, 0.9% below the
+GSA figure. That value is supplied externally; this repository contains no NASA
+POWER retrieval code, so it cannot be re-derived here.
+
+Generation and CO₂ scale by 0.926016. Deployable area is unchanged — it does not
+depend on irradiance.
+
+| Quantity | Before (1,300) | After (1,203.8211) |
+|---|---:|---:|
+| Deployable rooftop area | 8.482897 km² | **8.482897 km² (unchanged)** |
+| Annual generation | 1,764.4426 GWh/yr | **1,633.9024 GWh/yr** |
+| Annual CO₂ reduction | 1,006.2616 kt/yr | **931.8146 kt/yr** |
+| Share of Changsha 2022 demand | 3.4142% | **3.1616%** |
+
+### Fixed — manuscript Table 10 was internally inconsistent
+
+Table 10 reported the priority-grid subset as 2.12 km² and 459 GWh. Those two
+cells cannot both be right: in this model generation is exactly proportional to
+deployable area, so a subset's share of generation must equal its share of area.
+The published pair implies 25.0% by area but 26.0% by generation, i.e. two
+different irradiance values (2.12 → 459 implies 1,353 kWh/m²/yr, while
+8.48 → 1,764 implies 1,300).
+
+Neither cell is reproducible. Seven priority-set definitions were tested
+(quantile cutoff, strict top-146, ratio == 1.0, top-20%-by-count, and three
+fixed ratio thresholds), under both centroid and polygon joins, and for both
+high-potential-only and all-building bases. The closest values are 2.0879 km²
+(HP only) and 2.1529 km² (all buildings in the 146 cells); nothing yields 2.12
+or 459.
+
+Corrected values, now emitted by the pipeline rather than computed by hand:
+
+| Quantity | Table 10 | Corrected |
+|---|---:|---:|
+| Priority deployable area | 2.12 km² | **2.0879 km²** |
+| Priority annual generation | 459 GWh/yr | **402.1525 GWh/yr** |
+| Priority annual CO₂ | — | **229.3476 kt/yr** |
+| Share of deployable area | 25.0% | **24.6130%** |
+| Share of generation | 26.0% | **24.6130%** (identical, as required) |
+| HP buildings in priority grids | — | 1,314 of 6,411 |
+
+Note the generation figure changes for two independent reasons: the corrected
+subset basis and the new irradiance constant. At the old 1,300 constant the
+corrected subset would have been 434.2823 GWh.
+
+### Added
+
+- `planning_metrics.py` now computes the priority-grid subset internally and
+  writes `outputs/planning_metrics_priority_aggregate.csv`, including both share
+  measures and a `share_discrepancy_pp` column that must be zero. A runtime
+  warning fires if the two shares ever diverge, so this class of inconsistency
+  cannot recur silently.
+- `CITY_ANNUAL_CONSUMPTION_GWH = 51679.0` (Changsha 2022, external reference)
+  to express generation as a share of demand: total 3.1616%, priority subset
+  0.7782%.
+
+---
+
 ## [1.1.0] — 2026-08-09
 
 Revision release. A pre-revision audit of the analysis code found one
@@ -84,8 +155,9 @@ variant should read +0.9418, not +0.9475.
   "derived from ERA5 climatological mean and cross-checked against NASA POWER".
   No retrieval code, API call, or source dataset for either exists in this
   repository. Restated as an externally sourced constant whose provenance belongs
-  in the manuscript. The value itself is unchanged, so all planning outputs are
-  unchanged: 8.4829 km², 1,764.4426 GWh/yr, 1,006.2616 kt CO₂/yr.
+  in the manuscript. The value itself was unchanged at this release, so all
+  planning outputs were unchanged: 8.4829 km², 1,764.4426 GWh/yr,
+  1,006.2616 kt CO₂/yr. (Superseded in 1.2.0, which replaces the constant.)
 
 ### Disclosed — could not be reproduced
 
@@ -134,7 +206,7 @@ revision:
 
 | Quantity | Quoted | Actual |
 |---|---:|---:|
-| Priority grids' share of generation potential | 26% | **24.613%** |
+| Priority grids' share of generation potential | 26% | **24.613%** (see 1.2.0) |
 | Category ablation, grid-level ρ | ≈0.999 | **0.990315** |
 | Weight sensitivity, minimum pairwise ρ | ≥0.959 | **0.958726** |
 | Permutation null 95% CI | [−0.09, +0.09] | **[−0.0878, +0.0837]** |

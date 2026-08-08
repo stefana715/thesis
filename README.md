@@ -51,7 +51,8 @@ version before submission.
 | `src/features/extract_phase1_urban_core.py` | Methods — study area | 18,855 urban-core buildings (56.50% of 33,374) |
 | `src/models/baseline_solar_potential.py` | Methods — scoring; Results 4.1–4.2 | `solar_potential_score`; mean 43.885; q33 = 41.797, q66 = 45.513; 6,411 high-potential (34.002%) |
 | `src/analysis/grid_solar_aggregation.py` | Results 4.3 | 500 m grid; 671 occupied of 1,722; grid mean score 13.017–72.571 |
-| `src/planning/planning_metrics.py` | 3.9, Results 4.4 | 8.4829 km² deployable; 1,764.4426 GWh/yr; 1,006.2616 kt CO₂/yr; 146 priority grids (21.759% of occupied) |
+| `src/planning/planning_metrics.py` | 3.9, Results 4.4 | 8.4829 km² deployable; 1,633.9024 GWh/yr; 931.8146 kt CO₂/yr; 146 priority grids (21.759% of occupied) |
+| `src/planning/planning_metrics.py` (priority subset) | Table 10 | 2.0879 km²; 402.1525 GWh/yr; 229.3476 kt CO₂/yr; 24.613% of both deployable area and generation |
 | `src/visualization/fig01–fig08_*.py` | Figures 1–8 | Study-area, distribution, classification, grid and flowchart figures |
 
 ### Sensitivity analyses
@@ -130,10 +131,21 @@ IoU is 0.458 and the mean absolute area error is 28.2%. The reported aggregate
 figures (mean IoU 0.978, MAPE 1.1%) are dominated by the identical pairs and
 should not be read as an accuracy estimate.
 
-**The annual irradiance constant is not derived here.** `planning_metrics.py`
-applies 1,300 kWh/m²/yr uniformly to every building. The value is hard-coded;
-no retrieval code or source dataset exists in this repository, so its provenance
-must be established in the manuscript.
+**Generation is exactly proportional to deployable area.** With uniform
+irradiance, panel efficiency and performance ratio, `E = A_deploy × η × G × PR`
+reduces to a constant 192.611 GWh per km² of deployable area. Any subset's share
+of generation therefore *equals* its share of deployable area by construction —
+a table reporting two different shares for the same subset is internally
+inconsistent, not a rounding artefact. `planning_metrics.py` now computes the
+priority-grid subset itself and asserts the two shares agree.
+
+**The annual irradiance constant is uniform in space.** `planning_metrics.py`
+applies 1,203.8211 kWh/m²/yr (Global Solar Atlas, mean over the 671 occupied
+cells) to every building. That is defensible here because the intra-urban GHI
+spread is only 2.736%, but it means irradiance contributes no between-building
+variation. The NASA POWER cross-check quoted in the source comment
+(1,192.7 kWh/m²/yr) is supplied externally and cannot be re-derived from this
+repository.
 
 **Two reported figures could not be reproduced.** A building-level
 ρ = 0.983 does not arise from any of 39 correlation definitions tested
