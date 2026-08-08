@@ -34,6 +34,9 @@ data/external/*
 !data/raw/.gitkeep
 !data/interim/.gitkeep
 !data/processed/.gitkeep
+# 500 m grid product (1.2 MB). Nearly every downstream script takes it as an
+# input, so a snapshot without it cannot be run.
+!data/processed/grid_changsha_urban_core_solar_baseline.geojson
 !data/external/.gitkeep
 # Minimal reproducible subset for the OSM-quality check — a few hundred kB.
 # Committed deliberately: Overture retains only its two most recent releases,
