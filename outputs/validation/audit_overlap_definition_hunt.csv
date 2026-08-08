@@ -1,0 +1,19 @@
+join,selection,area_only_tier,n_base,n_variant,overlap,pct_of_base,pct_of_min,jaccard,overlap_vs_published,pct_of_published
+centroid-within,quantile cutoff >= q80,q66 of own distribution,146,135,125,85.616438,92.592593,0.801282,125,85.616438
+centroid-within,quantile cutoff >= q80,fixed cutoff 45.513,146,383,137,93.835616,93.835616,0.349490,137,93.835616
+centroid-within,quantile cutoff >= q80,rank-matched top-6411,146,135,125,85.616438,92.592593,0.801282,125,85.616438
+centroid-within,strict top-146 by rank,q66 of own distribution,146,146,126,86.301370,86.301370,0.759036,126,86.301370
+centroid-within,strict top-146 by rank,fixed cutoff 45.513,146,146,56,38.356164,38.356164,0.237288,56,38.356164
+centroid-within,strict top-146 by rank,rank-matched top-6411,146,146,126,86.301370,86.301370,0.759036,126,86.301370
+centroid-within,ratio == 1.0 only,q66 of own distribution,75,70,65,86.666667,92.857143,0.812500,68,46.575342
+centroid-within,ratio == 1.0 only,fixed cutoff 45.513,75,383,75,100.000000,100.000000,0.195822,137,93.835616
+centroid-within,ratio == 1.0 only,rank-matched top-6411,75,70,65,86.666667,92.857143,0.812500,68,46.575342
+polygon-within,quantile cutoff >= q80,q66 of own distribution,129,129,112,86.821705,86.821705,0.767123,105,71.917808
+polygon-within,quantile cutoff >= q80,fixed cutoff 45.513,129,374,123,95.348837,95.348837,0.323684,121,82.876712
+polygon-within,quantile cutoff >= q80,rank-matched top-6411,129,129,112,86.821705,86.821705,0.767123,105,71.917808
+polygon-within,strict top-146 by rank,q66 of own distribution,146,146,124,84.931507,84.931507,0.738095,108,73.972603
+polygon-within,strict top-146 by rank,fixed cutoff 45.513,146,146,57,39.041096,39.041096,0.242553,49,33.561644
+polygon-within,strict top-146 by rank,rank-matched top-6411,146,146,124,84.931507,84.931507,0.738095,108,73.972603
+polygon-within,ratio == 1.0 only,q66 of own distribution,69,63,59,85.507246,93.650794,0.808219,57,39.041096
+polygon-within,ratio == 1.0 only,fixed cutoff 45.513,69,374,69,100.000000,100.000000,0.184492,121,82.876712
+polygon-within,ratio == 1.0 only,rank-matched top-6411,69,63,59,85.507246,93.650794,0.808219,57,39.041096

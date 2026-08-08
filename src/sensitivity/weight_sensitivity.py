@@ -19,9 +19,29 @@ Weight variants
 Metrics
 -------
 - Building-level Spearman ρ vs baseline (W2) for each variant
-- Mean score, std, high-potential count (threshold = q66 = 45.513)
+- Mean score, std, and high-potential count under TWO tier definitions:
+    * quantile_recomputed_*  — q66 re-derived from each variant's own score
+      distribution. This is the correct comparison and the one to cite.
+    * fixed_threshold_*      — the single absolute cutoff 45.513 applied to
+      every variant. Retained only as a contrast; see the note below.
 - Grid-level (500 m) Spearman ρ of grid mean rankings vs baseline
 - Full 4×4 pairwise Spearman ρ matrix
+
+Why two tier definitions
+------------------------
+Earlier versions of this script judged tier membership for every weight
+variant against one absolute cutoff (q66 = 45.513) taken from the baseline
+run. That is invalid whenever a variant shifts the score distribution rather
+than merely reordering it. W4 (area only) has mean 56.330 against the
+baseline's 43.885, so nearly every building clears a cutoff of 45.513: the
+count inflates to 16,876 of 18,855 and the derived priority-grid set inflates
+from 146 to 383 cells. Comparisons built on that inflated set report a high
+overlap purely because the larger set swallows the smaller one
+(Jaccard ≈ 0.35), not because the screening outcome is stable.
+
+Re-deriving q66 per variant keeps the tier a fixed *share* of the stock, which
+is what a screening framework actually applies, and isolates the reordering
+effect the analysis is meant to measure.
 
 Outputs
 -------
@@ -52,7 +72,14 @@ from scipy.stats import gaussian_kde
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 CATEGORY_MULTIPLIERS = {"commercial": 1.10, "residential": 1.00, "mixed_unknown": 0.95}
-Q66_THRESHOLD = 45.513   # from baseline run (fixed — do not recompute)
+
+# Legacy absolute cutoff from the baseline run. Kept ONLY to reproduce the
+# superseded "fixed_threshold_*" columns — do not use it to judge a variant
+# whose score distribution has shifted (see the module docstring).
+Q66_FIXED_LEGACY = 45.513
+
+# Tier is defined as a share of the stock, re-derived per variant.
+Q66_QUANTILE = 0.66
 
 WEIGHT_VARIANTS = [
     ("W1: 0.50/0.50", 0.50, 0.50),
@@ -93,17 +120,28 @@ def build_grid_scores(
     """
     Spatial-join buildings to grid cells and return per-grid mean scores
     for each score column. Only occupied grids returned.
+
+    Buildings are assigned by CENTROID, matching the official grid product
+    (grid_solar_aggregation.py). Joining the full building polygon with
+    predicate="within" instead — as this function used to — silently drops
+    every building straddling a cell boundary, which cost 27 of 671 occupied
+    cells and shifted the grid-level correlations.
     """
-    logging.info("  Spatial joining buildings → grid cells…")
+    logging.info("  Spatial joining building centroids → grid cells…")
+    utm = gdf.estimate_utm_crs()
+    cent = gdf[["geometry"] + score_cols].to_crs(utm)
+    cent["geometry"] = cent.geometry.centroid
+
     joined = gpd.sjoin(
-        gdf[["geometry"] + score_cols],
-        grid[["grid_id", "geometry"]],
+        cent,
+        grid[["grid_id", "geometry"]].to_crs(utm),
         how="left",
         predicate="within",
     ).drop(columns=["index_right"], errors="ignore")
     joined = joined.dropna(subset=["grid_id"])
     joined["grid_id"] = joined["grid_id"].astype(int)
     grid_means = joined.groupby("grid_id")[score_cols].mean()
+    logging.info("  %d occupied grid cells", len(grid_means))
     return grid_means
 
 
@@ -122,16 +160,35 @@ def run_analysis(gdf: gpd.GeoDataFrame, grid: gpd.GeoDataFrame) -> tuple:
 
     # Building-level stats
     baseline = scores_df[BASELINE_LABEL]
+    baseline_hp = baseline >= baseline.quantile(Q66_QUANTILE)
+
     rows = []
     for label in scores_df.columns:
         s = scores_df[label]
         rho, p = stats.spearmanr(s, baseline)
-        n_hp = int((s > Q66_THRESHOLD).sum())
+
+        thr = float(s.quantile(Q66_QUANTILE))
+        hp_quantile = s >= thr
+        hp_fixed = s > Q66_FIXED_LEGACY
+
+        inter = int((hp_quantile & baseline_hp).sum())
+        union = int((hp_quantile | baseline_hp).sum())
+
         rows.append({
             "variant":         label,
             "mean_score":      float(s.mean()),
             "std_score":       float(s.std()),
-            "n_high_potential": n_hp,
+            # correct tier definition — cite these
+            "quantile_recomputed_threshold":       thr,
+            "quantile_recomputed_n_high_potential": int(hp_quantile.sum()),
+            "quantile_recomputed_n_changed_vs_baseline": int((hp_quantile != baseline_hp).sum()),
+            "quantile_recomputed_retained_pct_of_baseline":
+                100.0 * inter / int(baseline_hp.sum()) if int(baseline_hp.sum()) else float("nan"),
+            "quantile_recomputed_jaccard_vs_baseline":
+                inter / union if union else float("nan"),
+            # superseded absolute-cutoff definition — contrast only
+            "fixed_threshold_value":            Q66_FIXED_LEGACY,
+            "fixed_threshold_n_high_potential": int(hp_fixed.sum()),
             "spearman_rho_vs_baseline": float(rho),
             "spearman_p_vs_baseline":   float(p),
         })
@@ -189,7 +246,8 @@ def plot_results(
         ls = "-" if col == BASELINE_LABEL else "--"
         ax.plot(x_grid, kde(x_grid), color=color, linewidth=lw, linestyle=ls,
                 label=col.replace(" ✓", " (baseline)"))
-    ax.axvline(Q66_THRESHOLD, color="gray", linewidth=1.0, linestyle=":", label=f"q66 = {Q66_THRESHOLD:.1f}")
+    ax.axvline(Q66_FIXED_LEGACY, color="gray", linewidth=1.0, linestyle=":",
+               label=f"baseline q66 = {Q66_FIXED_LEGACY:.1f}")
     ax.set_xlabel("solar_potential_score", fontsize=10)
     ax.set_ylabel("Density", fontsize=10)
     ax.set_title("(a) Score distributions by weight variant\n(n = 18,855 buildings)", fontsize=11)
@@ -228,17 +286,25 @@ def plot_results(
 # ── Results table ─────────────────────────────────────────────────────────────
 
 def print_results(bldg_stats: pd.DataFrame, pairwise: pd.DataFrame, grid_rho_df: pd.DataFrame) -> None:
-    print("\n" + "=" * 76)
+    print("\n" + "=" * 104)
     print("  Weight Sensitivity — Building-level Stats")
-    print("=" * 76)
-    print(f"  {'Variant':<22} {'Mean':>7} {'Std':>6} {'N high-pot':>11} "
-          f"{'ρ vs W2':>9} {'p':>12}")
-    print("-" * 76)
+    print("=" * 104)
+    print(f"  {'Variant':<22} {'Mean':>7} {'Std':>6} | {'q66':>7} {'N HP':>7} {'changed':>8} "
+          f"{'kept%':>7} {'Jacc':>6} | {'N HP@45.513':>12} | {'ρ vs W2':>9}")
+    print("-" * 104)
     for _, row in bldg_stats.iterrows():
-        print(f"  {row['variant']:<22} {row['mean_score']:>7.3f} {row['std_score']:>6.3f} "
-              f"{int(row['n_high_potential']):>11} {row['spearman_rho_vs_baseline']:>+9.4f} "
-              f"{row['spearman_p_vs_baseline']:>12.4e}")
-    print("=" * 76)
+        print(f"  {row['variant']:<22} {row['mean_score']:>7.3f} {row['std_score']:>6.3f} | "
+              f"{row['quantile_recomputed_threshold']:>7.3f} "
+              f"{int(row['quantile_recomputed_n_high_potential']):>7} "
+              f"{int(row['quantile_recomputed_n_changed_vs_baseline']):>8} "
+              f"{row['quantile_recomputed_retained_pct_of_baseline']:>6.2f}% "
+              f"{row['quantile_recomputed_jaccard_vs_baseline']:>6.4f} | "
+              f"{int(row['fixed_threshold_n_high_potential']):>12} | "
+              f"{row['spearman_rho_vs_baseline']:>+9.4f}")
+    print("=" * 104)
+    print("  Left block: q66 re-derived per variant (correct — cite these).")
+    print(f"  Right block: superseded absolute cutoff {Q66_FIXED_LEGACY} applied to every")
+    print("  variant; inflates whenever a variant shifts the distribution. Contrast only.")
 
     print("\n  Grid-level Spearman ρ vs baseline (W2):")
     for _, row in grid_rho_df.iterrows():

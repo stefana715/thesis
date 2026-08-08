@@ -1,0 +1,40 @@
+family,definition,method,n,value
+building,W2 0.65/0.35 vs W3 0.70/0.30,spearman,18855,0.99964870
+building,W2 0.65/0.35 vs W3 0.70/0.30,pearson,18855,0.99800175
+building,W1 0.50/0.50 vs W2 0.65/0.35,spearman,18855,0.99735266
+building,W1 0.50/0.50 vs W3 0.70/0.30,spearman,18855,0.99527849
+building,"area-only vs composite, NON-high-potential subset",pearson,12444,0.99323507
+building,"area-only vs composite, NON-high-potential subset",spearman,12444,0.99262743
+building,W3 0.70/0.30 vs W4 1.00/0.00,spearman,18855,0.97659791
+building,W1 0.50/0.50 vs W2 0.65/0.35,pearson,18855,0.97576832
+building,W2 0.65/0.35 vs W4 1.00/0.00,spearman,18855,0.97190655
+building,area-only vs composite (final score),spearman,18855,0.97190655
+building,area_score vs base_score,spearman,18855,0.96852146
+building,"area-only vs composite (base_score, no category mult)",spearman,18855,0.96852146
+building,W3 0.70/0.30 vs W4 1.00/0.00,pearson,18855,0.96022338
+building,area-only vs composite (no log transform),spearman,18855,0.96013983
+building,W1 0.50/0.50 vs W3 0.70/0.30,pearson,18855,0.95999295
+building,W1 0.50/0.50 vs W4 1.00/0.00,spearman,18855,0.95872649
+building,raw footprint area vs composite score,spearman,18855,0.95696755
+grid,"grid median score, polygon-within",spearman,644,0.95046156
+grid,"grid mean score, polygon-within",spearman,644,0.94748005
+building,area-only vs composite (final score),kendall,18855,0.94645682
+grid,"grid mean score, centroid-within",spearman,671,0.94178215
+grid,"grid median score, centroid-within",spearman,671,0.94145116
+building,area-only vs composite (final score),pearson,18855,0.94066861
+building,W2 0.65/0.35 vs W4 1.00/0.00,pearson,18855,0.94066861
+building,"area-only vs composite (base_score, no category mult)",pearson,18855,0.93661425
+building,area_score vs base_score,pearson,18855,0.93661425
+grid,"grid mean score, centroid-within",pearson,671,0.92940581
+grid,"grid mean score, polygon-within",pearson,644,0.92464560
+building,log area vs composite score,pearson,18855,0.91582399
+grid,"grid median score, centroid-within",pearson,671,0.90596555
+grid,"grid median score, polygon-within",pearson,644,0.90378335
+building,area-only vs composite (no log transform),pearson,18855,0.87298094
+grid,"grid mean area-only vs HP ratio, centroid-within",spearman,671,0.85037360
+grid,"grid mean area-only vs HP ratio, polygon-within",spearman,644,0.84833433
+building,W1 0.50/0.50 vs W4 1.00/0.00,pearson,18855,0.84364966
+building,"area-only vs composite, HIGH-POTENTIAL subset",spearman,6411,0.76782510
+building,"area-only vs composite, HIGH-POTENTIAL subset",kendall,6411,0.74014066
+building,"area-only vs composite, HIGH-POTENTIAL subset",pearson,6411,0.72116612
+building,raw footprint area vs composite score,pearson,18855,0.53542189

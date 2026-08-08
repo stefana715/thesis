@@ -1,0 +1,2 @@
+n,n_iou_exactly_1,pct_iou_exactly_1,n_area_diff_exactly_0,pct_area_diff_exactly_0,n_centroid_dist_below_1um,pct_centroid_dist_below_1um,mean_iou,mean_iou_excluding_identical,n_nonidentical,mape_pct_all,mape_pct_nonidentical
+100,96,96.000000,78,78.000000,96,96.000000,0.978318,0.457950,4,1.129858,28.246459

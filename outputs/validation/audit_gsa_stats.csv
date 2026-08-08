@@ -1,0 +1,2 @@
+n_cells,spearman_rho,spearman_p,pearson_r,ghi_min_kwh_m2_day,ghi_max_kwh_m2_day,ghi_mean_kwh_m2_day,spread_pct_of_mean,spread_pct_of_min,cv_pct
+671,0.203332,0.000000,0.166177,3.238500,3.328750,3.298140,2.736391,2.786784,0.394433

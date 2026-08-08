@@ -13,8 +13,13 @@ Design
 
 Per-building pvlib reference yield
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-1. Clear-sky Ineichen model  (lat=28.228, lon=112.939)
-2. Flat roof: tilt=0°, azimuth=180°
+1. Clear-sky Ineichen model at a single point (lat=28.228, lon=112.939).
+   One scalar for the whole study area; irradiance does not vary per building.
+2. Flat roof, tilt = 0°. Because tilt is zero the plane-of-array irradiance
+   equals GHI, so no transposition model is applied — pvlib.irradiance is
+   never called and surface_tilt / surface_azimuth are never passed to it.
+   Azimuth therefore plays no part in the calculation and no building
+   orientation is derived from the footprint geometry.
 3. Available roof area = footprint_area_m2 × 0.65
 4. Simplified shading: for each neighbour within 50 m that is taller,
        shading_factor = max(0.5,  1.0 − 0.1 × Δh / distance)
