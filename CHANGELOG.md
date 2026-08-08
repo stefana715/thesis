@@ -5,6 +5,66 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.3.0] — 2026-08-09
+
+### Changed
+
+#### Overture release pinned to 2026-03-18.0
+
+`osm_quality_validation.py` resolved the Overture Maps release at runtime via
+`_get_latest_release()`, so re-running it would silently re-point the reference
+dataset at whatever snapshot happened to be current. The release is now pinned:
+
+    OVERTURE_RELEASE = "2026-03-18.0"
+
+matching the snapshot cited in Section 3.11 of the manuscript. Auto-detection is
+retained as an opt-in fallback, reachable only via `--release latest`, which
+logs a warning that Section 4.8 may not reproduce. `--release <tag>` selects an
+explicit alternative.
+
+### Known issue — Section 4.8 inputs are no longer retrievable
+
+The pinned snapshot **cannot be re-downloaded**. Overture retains only recent
+releases, and 2026-03-18.0 has been aged out upstream:
+
+    https://stac.overturemaps.org/catalog.json
+      latest: 2026-07-22.0; only 2026-06-17.0 and latest listed as children
+    https://stac.overturemaps.org/2026-03-18.0/collections.parquet
+      HTTP 404
+    s3://overturemaps-us-west-2/release/
+      only release/2026-06-17.0/ and release/2026-07-22.0/ remain
+
+The local extract (`data/external/overture_buildings_changsha.geojsonl`, 298 MB)
+was also lost during the 1.1.0 merge: `data/external` was tracked as a
+placeholder *file* and had become a *directory*, and checking out the
+pre-merge branch state replaced the directory, removing its untracked contents.
+The file was never in git history, so it cannot be restored from the repository,
+and no copy survives on disk.
+
+Consequences:
+
+- The Section 4.8 results remain available and are committed
+  (`outputs/validation/osm_quality_results.csv`,
+  `osm_quality_summary.csv`, `figure/osm_quality_scatter.png`):
+  100/100 matched, mean IoU 0.978, r = 0.998, ρ = 0.997, MAPE 1.1%,
+  3 buildings beyond ±20%.
+- Those numbers **cannot be independently re-derived** by us or by a reviewer,
+  because the input snapshot no longer exists at the source.
+- Re-running against a currently available release (2026-06-17.0 or
+  2026-07-22.0) would produce a different reference dataset and would require
+  changing the release tag stated in Section 3.11.
+
+No committed output was overwritten. Deciding how to resolve this in the
+manuscript — re-run against a current release and update Section 3.11, or retain
+the existing figures with an explicit availability caveat — is deferred.
+
+Note that this limitation is partly independent of the file loss: the snapshot
+would have aged out upstream regardless, so the archival gap was latent from the
+start. Archiving the input extract alongside the results (e.g. with the Zenodo
+deposit) would prevent a recurrence.
+
+---
+
 ## [1.2.0] — 2026-08-09
 
 ### Changed — affects reported numbers

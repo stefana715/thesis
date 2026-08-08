@@ -24,6 +24,11 @@ Usage:
      the Changsha bbox, and saves as:
        data/external/overture_buildings_changsha.geojsonl
 
+     The Overture release is PINNED to 2026-03-18.0 (OVERTURE_RELEASE), the
+     snapshot cited in Section 3.11 of the manuscript. Pass --release <tag>
+     to override, or --release latest to auto-detect; both will change the
+     reference dataset and may alter the Section 4.8 results.
+
   2. Run the full validation:
        python osm_quality_validation.py
 
@@ -79,8 +84,17 @@ MIN_IOU = 0.3                 # minimum intersection-over-union for a valid matc
 # Changsha bounding box (minx, miny, maxx, maxy)
 CHANGSHA_BBOX = (111.8, 27.8, 113.2, 28.6)
 
-# Overture release (None = auto-detect latest)
-OVERTURE_RELEASE = None
+# Overture release — PINNED.
+#
+# This must stay in step with the manuscript, which states
+# "Overture Maps (release 2026-03-18.0)" in Section 3.11. Auto-detecting the
+# latest release would silently re-point the reference dataset at a different
+# snapshot and break reproducibility of the Section 4.8 numbers.
+#
+# To deliberately use a different snapshot, pass --release <tag> on the command
+# line, or --release latest to resolve the newest tag via _get_latest_release().
+# Neither is the default.
+OVERTURE_RELEASE = "2026-03-18.0"
 
 
 # ============================================================
@@ -99,7 +113,13 @@ def setup_logging():
 # ============================================================
 
 def _get_latest_release():
-    """Fetch the latest Overture release tag from the STAC catalog."""
+    """
+    Fetch the latest Overture release tag from the STAC catalog.
+
+    OPTIONAL fallback — not used by default. The release is pinned to
+    OVERTURE_RELEASE so the reference dataset matches the manuscript. This is
+    reached only via `--release latest`.
+    """
     try:
         from overturemaps.core import get_latest_release
         return get_latest_release()
@@ -183,7 +203,7 @@ def download_overture_buildings(output_path=None, bbox=None, release=None):
     if bbox is None:
         bbox = CHANGSHA_BBOX
     if release is None:
-        release = _get_latest_release()
+        release = OVERTURE_RELEASE
 
     output_path = Path(output_path)
     os.makedirs(output_path.parent, exist_ok=True)
@@ -523,16 +543,20 @@ def main():
     parser.add_argument("--download-only", action="store_true",
                         help="Download Overture buildings for Changsha and exit")
     parser.add_argument("--release", default=None,
-                        help="Overture release tag (default: auto-detect latest)")
+                        help=f"Overture release tag (default: pinned {OVERTURE_RELEASE}; "
+                             f"pass 'latest' to resolve the newest tag instead)")
     args = parser.parse_args()
 
     setup_logging()
 
     release = args.release or OVERTURE_RELEASE
+    if release == "latest":
+        release = _get_latest_release()
+        logging.warning("Using auto-detected release %s instead of the pinned "
+                        "%s — Section 4.8 numbers may not reproduce.",
+                        release, OVERTURE_RELEASE)
 
     if args.download_only:
-        if release is None:
-            release = _get_latest_release()
         ok = download_overture_buildings(release=release)
         if ok:
             print("\nDownload complete. Now run: python osm_quality_validation.py")
