@@ -1,5 +1,5 @@
-variant,mean_score,std_score,n_high_potential,spearman_rho_vs_baseline,spearman_p_vs_baseline,grid_spearman_rho_vs_baseline,grid_spearman_p_vs_baseline
-W1: 0.50/0.50,38.551046,6.023741,1624,0.997353,0.000000,0.995472,0.000000
-W2: 0.65/0.35 ✓,43.885185,6.673897,6409,1.000000,0.000000,1.000000,0.000000
-W3: 0.70/0.30,45.663231,6.953165,9585,0.999649,0.000000,0.999380,0.000000
-W4: 1.00/0.00,56.330213,9.062342,16876,0.971907,0.000000,0.947480,0.000000
+variant,mean_score,std_score,quantile_recomputed_threshold,quantile_recomputed_n_high_potential,quantile_recomputed_n_changed_vs_baseline,quantile_recomputed_retained_pct_of_baseline,quantile_recomputed_jaccard_vs_baseline,fixed_threshold_value,fixed_threshold_n_high_potential,spearman_rho_vs_baseline,spearman_p_vs_baseline,grid_spearman_rho_vs_baseline,grid_spearman_p_vs_baseline
+W1: 0.50/0.50,38.551046,6.023741,39.499119,6411,100,99.220090,0.984523,45.513000,1624,0.997353,0.000000,0.995472,0.000000
+W2: 0.65/0.35 ✓,43.885185,6.673897,45.512612,6411,0,100.000000,1.000000,45.513000,6409,1.000000,0.000000,1.000000,0.000000
+W3: 0.70/0.30,45.663231,6.953165,47.493848,6411,76,99.407269,0.988215,45.513000,9585,0.999649,0.000000,0.999380,0.000000
+W4: 1.00/0.00,56.330213,9.062342,59.233150,6411,702,94.525035,0.896185,45.513000,16876,0.971907,0.000000,0.947480,0.000000
