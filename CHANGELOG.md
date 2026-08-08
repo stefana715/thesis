@@ -38,9 +38,12 @@ four months apart: 96 of 100 sampled OSM buildings have a byte-identical
 counterpart in Overture. The aggregate figures describe self-comparison, not
 accuracy.
 
-The previously committed `osm_quality_results.csv` / `osm_quality_summary.csv`
-are **not** overwritten. New outputs carry a `_r2026-07-22` suffix, pending a
-decision on which release Section 3.11 should cite.
+**2026-07-22.0 is now the release of record.** Section 3.11 should cite it, and
+the canonical outputs (`osm_quality_results.csv`, `osm_quality_summary.csv`,
+`figure/osm_quality_scatter.png`) now hold this run. The superseded
+2026-03-18.0 outputs remain retrievable from commit `5e0fc09`; the comparison
+table above preserves their values. The interim `_r2026-07-22` and `_archive`
+copies used for that comparison have been removed as redundant.
 
 #### GERS identifiers preserved during extraction
 

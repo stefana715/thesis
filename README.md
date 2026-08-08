@@ -74,7 +74,7 @@ version before submission.
 | `src/validation/benchmark_robustness.py` | 4.7 | 20 stratified zones, mean ρ = 0.950000; grid 807 ρ = 0.431304 |
 | `src/validation/benchmark_param_sensitivity.py` | 4.7 | Shading radius / roof factor / shading coefficient variants |
 | `random_baseline_validation_v2.py` | 4.7 | Permutation null, 95% CI [−0.0878, +0.0837], p < 0.001 |
-| `osm_quality_validation.py` | 4.8 | OSM vs Overture, release **2026-07-22.0** (current default): 100/100 matched, mean IoU 0.989, r = 0.998, ρ = 0.999, MAPE 1.1%, 2 buildings beyond ±20%. Previous run on the retired release 2026-03-18.0, still committed as `osm_quality_results.csv`: mean IoU 0.978, ρ = 0.997, 3 beyond ±20%. Section 3.11 must cite whichever release the manuscript reports. |
+| `osm_quality_validation.py` | 3.11, 4.8 | OSM vs Overture, release **2026-07-22.0**: 100/100 matched, mean IoU 0.989, r = 0.998, ρ = 0.999, MAPE 1.1%, 2 buildings beyond ±20% |
 | `osm_quality_validation.py --from-archive` | 4.8 | Same statistics recomputed from `data/external/osm_quality_match_archive.geojson`, no network required |
 
 ### Revision audit → Supplementary Material
