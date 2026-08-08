@@ -1,0 +1,2 @@
+n_sampled,n_matched,match_rate_pct,pearson_r,pearson_p,spearman_rho,spearman_p,mape_pct,exceed_20pct_count,exceed_20pct_pct,mean_iou,mean_osm_area,mean_ref_area
+100,100,100.0,0.998,2.8180634833579663e-123,0.999,1.0781267362186275e-139,1.1,2,2.0,0.989,1056.6,1049.3

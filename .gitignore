@@ -35,6 +35,10 @@ data/external/*
 !data/interim/.gitkeep
 !data/processed/.gitkeep
 !data/external/.gitkeep
+# Minimal reproducible subset for the OSM-quality check — a few hundred kB.
+# Committed deliberately: Overture retains only its two most recent releases,
+# so a pinned release tag alone does not survive long term.
+!data/external/osm_quality_match_archive.geojson
 
 # Output artifacts
 outputs/figures/*
