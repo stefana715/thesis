@@ -52,7 +52,10 @@ The pipeline runs in this order:
 1. **OSM building download** — fetch Changsha buildings from OpenStreetMap via osmnx
 2. **Building height proxy construction** — estimate building heights from OSM tags and proxy logic (no LiDAR)
 3. **Urban core extraction (Phase 1)** — filter to the dense urban core area, reducing from full municipal extent
-4. **Building-level baseline solar scoring** — compute a composite solar potential score per building using footprint area, height proxy, and orientation
+4. **Building-level baseline solar scoring** — compute a composite solar potential score per building from footprint area and height proxy only:
+   `base_score = 0.65 * minmax(log1p(area)) + 0.35 * minmax(log1p(height_proxy))`,
+   then `score = clip(base_score * category_multiplier * 100, 0, 100)`.
+   **No orientation term exists** — building orientation is not computed anywhere in the pipeline.
 5. **High-potential classification** — apply q33/q66 quantile thresholds to classify buildings as low/medium/high potential
 6. **Grid aggregation (Phase 2)** — overlay 500m grid, compute per-grid mean score, building count, and high_potential_ratio
 7. **CSV export** — export building-level and grid-level results
