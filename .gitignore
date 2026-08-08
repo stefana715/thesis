@@ -41,3 +41,4 @@ outputs/tables/*
 # Keep placeholders
 !outputs/figures/.gitkeep
 !outputs/tables/.gitkeepwriting /
+writing/
