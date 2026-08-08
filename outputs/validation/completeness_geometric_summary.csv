@@ -1,0 +1,15 @@
+variant,metric,vs,n,spearman_rho,p_value
+ALL Overture,coverage_geo,mean_score,670,0.044811,0.246729
+ALL Overture,coverage_geo,high_potential_ratio,670,0.058089,0.133082
+ALL Overture,coverage_geo,dist_km,670,-0.090900,0.018604
+ALL Overture,ratio_area,mean_score,667,0.038508,0.320698
+ALL Overture,ratio_area,high_potential_ratio,667,0.055785,0.150108
+ALL Overture,ratio_area,dist_km,667,-0.081811,0.034647
+ALL Overture,coverage_geo,priority_vs_rest_mannwhitney,670,-0.080283,0.137662
+NON-OSM only,coverage_geo,mean_score,666,0.003001,0.938386
+NON-OSM only,coverage_geo,high_potential_ratio,666,0.007685,0.843072
+NON-OSM only,coverage_geo,dist_km,666,-0.086008,0.026450
+NON-OSM only,ratio_area,mean_score,661,0.051744,0.183943
+NON-OSM only,ratio_area,high_potential_ratio,661,0.063832,0.101069
+NON-OSM only,ratio_area,dist_km,661,-0.101948,0.008717
+NON-OSM only,coverage_geo,priority_vs_rest_mannwhitney,666,-0.003998,0.838059

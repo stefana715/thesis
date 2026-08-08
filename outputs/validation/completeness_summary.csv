@@ -2,7 +2,7 @@ coverage_metric,vs,n,spearman_rho,p_value
 coverage_count,mean_score,667,-0.274936,0.000000
 coverage_count,high_potential_ratio,667,-0.244639,0.000000
 coverage_count,dist_km,667,-0.091642,0.017917
-coverage_area,mean_score,667,0.038477,0.321087
-coverage_area,high_potential_ratio,667,0.055774,0.150189
-coverage_area,dist_km,667,-0.081834,0.034597
-coverage_area,priority_vs_rest_mannwhitney_p,667,-0.065601,0.225418
+ratio_area,mean_score,667,0.038477,0.321087
+ratio_area,high_potential_ratio,667,0.055774,0.150189
+ratio_area,dist_km,667,-0.081834,0.034597
+ratio_area,priority_vs_rest_mannwhitney_p,667,-0.065601,0.225418

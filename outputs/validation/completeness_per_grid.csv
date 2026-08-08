@@ -1,4 +1,4 @@
-grid_id,n_osm,area_osm_m2,n_overture,area_overture_m2,coverage_count,coverage_area,mean_score,high_potential_ratio,building_count,is_priority,is_occupied,dist_km
+grid_id,n_osm,area_osm_m2,n_overture,area_overture_m2,coverage_count,ratio_area,mean_score,high_potential_ratio,building_count,is_priority,is_occupied,dist_km
 0,0.000000,0.000000,0.000000,0.000000,,,,0.000000,0,False,False,15.506261
 1,0.000000,0.000000,0.000000,0.000000,,,,0.000000,0,False,False,15.173870
 2,0.000000,0.000000,0.000000,0.000000,,,,0.000000,0,False,False,14.850875

@@ -22,9 +22,19 @@ What this script does
    are reported only over the intersection. The urban core lies entirely inside
    the Overture bbox, so urban-core figures are directly comparable.
 2. Counts both datasets over the comparable regions.
-3. Per 500 m cell: OSM and Overture building counts and rooftop areas, coverage
-   by count and — more robustly — by area, since count ratios are distorted by
-   whether a structure is mapped as one polygon or several.
+3. Per 500 m cell: OSM and Overture building counts and rooftop areas, and the
+   RATIO of each. Note the naming: `ratio_area` is sum(OSM area) /
+   sum(comparator area) — a ratio of two independently computed totals, not a
+   geometric coverage. It does not dissolve overlapping polygons, does not
+   intersect the two datasets, and can exceed 1.0.
+
+   THE OFFICIAL COVERAGE METRIC IS `coverage_geo` IN
+   src/validation/osm_completeness_geometric.py, which clips to the cell,
+   dissolves each dataset, intersects them, and is bounded to [0, 1].
+   Empirically the two agree closely here (60.11% geometric vs 61.44% ratio
+   over the 671 occupied cells) because 98.08% of OSM rooftop area falls
+   inside comparator footprints — but that is a measured result, not a
+   property that can be assumed.
 4. Tests whether coverage is spatially structured: correlation with mean score
    and high-potential ratio, priority vs non-priority distributions with a
    Mann-Whitney U test, and correlation with distance from the urban centre.
@@ -128,7 +138,7 @@ def per_grid_table(osm_core, overture, grid, utm):
     for c in t.columns:
         t[c] = t[c].fillna(0)
     t["coverage_count"] = np.where(t["n_overture"] > 0, t["n_osm"] / t["n_overture"], np.nan)
-    t["coverage_area"] = np.where(t["area_overture_m2"] > 0,
+    t["ratio_area"] = np.where(t["area_overture_m2"] > 0,
                                   t["area_osm_m2"] / t["area_overture_m2"], np.nan)
     return t.reset_index()
 
@@ -298,8 +308,8 @@ def main():
     print("\n" + R())
     print(f"  3. PER-CELL COVERAGE  ({len(occ)} occupied cells of {len(t)})")
     print(R())
-    for col, label in [("coverage_count", "coverage by BUILDING COUNT"),
-                       ("coverage_area", "coverage by ROOFTOP AREA")]:
+    for col, label in [("coverage_count", "COUNT RATIO (n OSM / n comparator)"),
+                       ("ratio_area", "AREA RATIO (sum OSM / sum comparator)")]:
         v = occ[col].dropna()
         print(f"\n  {label}  (n={len(v)})")
         print(f"    min {v.min():.4f} | q25 {v.quantile(.25):.4f} | median {v.median():.4f} "
@@ -316,7 +326,7 @@ def main():
     print("  4-5. IS THE MISSING STOCK SPATIALLY STRUCTURED?")
     print(R())
     rows = []
-    for col in ["coverage_count", "coverage_area"]:
+    for col in ["coverage_count", "ratio_area"]:
         for other, lbl in [("mean_score", "mean screening score"),
                            ("high_potential_ratio", "high-potential ratio"),
                            ("dist_km", "distance from urban centre")]:
@@ -328,10 +338,10 @@ def main():
         print()
 
     print(R("-"))
-    print("  Priority (146) vs non-priority cells — coverage_area")
+    print("  Priority (146) vs non-priority cells — ratio_area")
     print(R("-"))
-    a = occ.loc[occ["is_priority"], "coverage_area"].dropna()
-    b = occ.loc[~occ["is_priority"], "coverage_area"].dropna()
+    a = occ.loc[occ["is_priority"], "ratio_area"].dropna()
+    b = occ.loc[~occ["is_priority"], "ratio_area"].dropna()
     print(f"  {'group':<16} {'n':>5} {'min':>8} {'q25':>8} {'median':>8} {'q75':>8} {'max':>8} {'mean':>8}")
     for lbl, v in [("priority", a), ("non-priority", b)]:
         print(f"  {lbl:<16} {len(v):>5} {v.min():>8.4f} {v.quantile(.25):>8.4f} "
@@ -344,7 +354,7 @@ def main():
     print("  AUC 0.5 means the two groups' coverage distributions are indistinguishable.")
 
     stats_rows = pd.DataFrame(rows)
-    stats_rows.loc[len(stats_rows)] = {"coverage_metric": "coverage_area",
+    stats_rows.loc[len(stats_rows)] = {"coverage_metric": "ratio_area",
                                        "vs": "priority_vs_rest_mannwhitney_p",
                                        "n": n1 + n2, "spearman_rho": 2 * auc - 1, "p_value": pu}
 

@@ -151,7 +151,8 @@ version before submission.
 | `src/validation/proxy_composition_diagnostics.py` | SI text | Height-proxy composition, score-component variance, area-only counterfactual |
 | `src/validation/revision_audit.py` | audit CSVs | Provenance hunt across 39 correlation and 18 overlap definitions; priority-grid generation share; Overture independence check |
 | `src/validation/si_tables_and_shading_scope.py` | SI Tables A–B, Figure S4 | Height degeneracy vs benchmark agreement (ρ = +0.9769, p = 1.66×10⁻¹³); shading scope by density quintile |
-| `src/validation/osm_completeness.py` | completeness CSVs | OSM vs Overture coverage: 61.44% by rooftop area in the urban core; coverage uncorrelated with score (p = 0.321), high-potential ratio (p = 0.150) and priority selection (Mann-Whitney p = 0.226) |
+| `src/validation/osm_completeness.py` | completeness CSVs | OSM vs Overture: counts, extents, provenance, and `ratio_area` (a ratio of totals, 61.44%) — not a coverage measure |
+| `src/validation/osm_completeness_geometric.py` | 4.7.7, completeness CSVs | **Metric of record**: `coverage_geo` = 60.11% over the 671 occupied cells (dissolve + intersect, bounded [0,1]); `osm_in_ref` = 98.08%; coverage uncorrelated with score (p = 0.247), high-potential ratio (p = 0.133) and priority selection (Mann-Whitney p = 0.138) |
 
 ---
 
@@ -215,8 +216,13 @@ a table reporting two different shares for the same subset is internally
 inconsistent, not a rounding artefact. `planning_metrics.py` now computes the
 priority-grid subset itself and asserts the two shares agree.
 
-**OSM covers about 61% of the mapped rooftop area, and the totals are scoped
-accordingly.** Against Overture Maps — a valid reference here, since 94.88% of
+**OSM covers about 60% of the mapped rooftop area, and the totals are scoped
+accordingly.** The metric of record is geometric coverage — each dataset clipped
+to the cell, dissolved, then intersected — giving **60.11%** across the 671
+occupied cells. Two independent estimates agree: the ratio of rooftop-area
+totals gives 61.44%, and treating the non-OSM-sourced Overture stock as the
+missing remainder gives 61.75%. They coincide because 98.08% of OSM rooftop area
+falls inside comparator footprints. Against Overture Maps — a valid reference here, since 94.88% of
 its Changsha stock comes from a non-OSM source — the urban core holds 18,855 OSM
 buildings against 65,487 Overture buildings, and 18.6745 km² of OSM rooftop
 against 30.3951 km². The reported 8.4829 km² deployable area and

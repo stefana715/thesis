@@ -5,6 +5,88 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+Will be published as v2.0.0 once the manuscript is final. No GitHub Release is
+cut for this range, so no Zenodo DOI is minted.
+
+### Fixed — `coverage_area` was a ratio of totals, not a coverage measure
+
+`osm_completeness.py` reported, per cell, `sum(OSM polygon area) /
+sum(Overture polygon area)` under the name `coverage_area`, while the write-up
+described it as the share of comparator rooftop area that OSM covers. Those are
+different quantities: two datasets could hold the same total roof area in
+entirely different places and still score 1.0. The metric also double-counts
+wherever polygons within one dataset overlap, and it can exceed 1.0 — nine cells
+did, up to 2.7284, mostly where OSM maps a courtyard or complex as one large
+polygon.
+
+The field is renamed **`ratio_area`** and documented as a ratio of independent
+totals. Values are unchanged.
+
+### Added — geometric coverage as the metric of record
+
+`src/validation/osm_completeness_geometric.py` computes true geometric coverage:
+each dataset is clipped to the cell, dissolved with `unary_union` so internal
+overlaps count once, and then intersected.
+
+    coverage_geo = area(OSM_dissolved ∩ REF_dissolved) / area(REF_dissolved)
+
+bounded to [0, 1] by construction, which removes the >1.0 anomaly.
+
+| Metric | 671 occupied cells | Including the 92 OSM-empty cells |
+|---|---:|---:|
+| `ratio_area` (a) | 61.44% | 59.09% |
+| **`coverage_geo` (b)** | **60.11%** | 57.67% |
+
+Per-cell medians: 0.6181 (ratio) against 0.5991 (geometric). The two agree
+closely because **98.08%** of OSM rooftop area falls inside comparator
+footprints (`osm_in_ref`) — a measured result that justifies the earlier
+figure's magnitude, not a property that could have been assumed.
+
+**Metric of record for the manuscript: `coverage_geo` = 60.11%** over the 671
+occupied cells, reported alongside `ratio_area` 61.44% and the missing-share
+estimate 61.75%, with `osm_in_ref` 98.08% as the reason all three coincide.
+
+### Finding — the non-OSM subset cannot be used as a coverage comparator
+
+Re-running coverage against only the non-OSM-sourced Overture buildings
+(80.4% of the urban-core stock) returns 0.33%. That figure is an artefact, not
+a result: OSM and the non-OSM subset are almost perfectly disjoint in space.
+
+    OSM dissolved                18.4457 km²
+    non-OSM-sourced dissolved    12.6092 km²
+    sum                          31.0549 km²
+    ALL Overture dissolved       31.3724 km²
+    OSM ∩ non-OSM subset          0.0415 km²   (0.33%)
+
+Overture deduplicates against OSM: it keeps OSM geometry where OSM has a
+building and draws on the other dataset only where OSM does not. Measuring how
+much of that subset OSM covers therefore measures the conflation logic, and is
+zero by construction.
+
+Used correctly, the non-OSM subset *is* the missing stock. Reframed as
+`missing_share = non-OSM / (OSM + non-OSM)`:
+
+| Statistic | Value |
+|---|---:|
+| OSM share of known rooftop area | **61.75%** |
+| Spearman(missing_share, mean score) | −0.0266, p = 0.491 |
+| Spearman(missing_share, high-potential ratio) | −0.0402, p = 0.298 |
+| Priority vs rest (Mann-Whitney) | U = 41,405, p = 0.137, AUC = 0.5402 |
+
+The v1.7.0 conclusion is unchanged and now rests on a cleaner construction: the
+missing roof area comes from a genuinely different source, and its distribution
+is uncorrelated with the screening outputs.
+
+This also settles how Overture may be described. It is an effectively
+independent **completeness** reference — the stock OSM lacks comes from another
+dataset — while remaining an unsuitable **geometric-accuracy** reference, since
+for buildings OSM already has, Overture's geometry *is* OSM's. That is the same
+mechanism behind the 96-of-100 identical pairs in Section 4.7.6.
+
+---
+
 ## [1.7.0] — 2026-08-09
 
 ### Added — OSM completeness assessment
