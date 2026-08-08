@@ -27,10 +27,19 @@ panel_efficiency (0.20):
     Conservative mid-range value for 2024 mainstream panels (18–22 %).
 
 irradiance_kwh_per_m2_year (1300):
-    Changsha annual global horizontal irradiance (GHI), derived from
-    ERA5 climatological mean and cross-checked against NASA POWER
-    (station lat ≈ 28.2°N, lon ≈ 112.9°E).
-    Range: 1,200–1,400 kWh/m²/year depending on source and year.
+    Annual global horizontal irradiance for Changsha, in kWh/m²/year.
+    Externally sourced constant; provenance is documented in the
+    manuscript, not derived within this repository. No irradiance
+    retrieval code or source dataset is present here — the value is
+    hard-coded below and applied uniformly to every building.
+
+    For scale, two figures that ARE reproducible from this repository:
+      Global Solar Atlas, mean over the 671 occupied grid cells
+        (outputs/validation/gsa_comparison.csv)          1,203.8 kWh/m²/yr
+      pvlib Ineichen clear-sky at the study-area centroid
+        (src/validation/pvlib_benchmark_validation.py)   2,158.8 kWh/m²/yr
+    The clear-sky figure is an upper bound (no cloud cover) and is used
+    only inside the benchmark script; it does not feed these metrics.
 
 performance_ratio (0.80):
     System-level efficiency factor covering inverter losses, wiring,
@@ -72,7 +81,7 @@ import numpy as np
 CONFIG = {
     "utilisation_factor":            0.65,    # fraction of rooftop usable
     "panel_efficiency":              0.20,    # (dimensionless)
-    "irradiance_kwh_per_m2_year":    1300.0,  # kWh/m²/year (Changsha GHI)
+    "irradiance_kwh_per_m2_year":    1300.0,  # kWh/m²/yr — external constant, see docstring
     "performance_ratio":             0.80,    # system PR
     "grid_emission_factor_kg_per_kwh": 0.5703,  # kg CO₂eq/kWh
     "priority_top_fraction":         0.20,   # top 20 % grids by HP ratio
