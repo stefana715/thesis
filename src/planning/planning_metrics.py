@@ -26,20 +26,29 @@ panel_efficiency (0.20):
     Commercial mono-crystalline silicon efficiency (PERC / TOPCon).
     Conservative mid-range value for 2024 mainstream panels (18–22 %).
 
-irradiance_kwh_per_m2_year (1300):
-    Annual global horizontal irradiance for Changsha, in kWh/m²/year.
-    Externally sourced constant; provenance is documented in the
-    manuscript, not derived within this repository. No irradiance
-    retrieval code or source dataset is present here — the value is
-    hard-coded below and applied uniformly to every building.
+irradiance_kwh_per_m2_year (1203.8211):
+    Annual global horizontal irradiance for the Changsha urban core,
+    in kWh/m²/year. Applied uniformly to every building.
 
-    For scale, two figures that ARE reproducible from this repository:
-      Global Solar Atlas, mean over the 671 occupied grid cells
-        (outputs/validation/gsa_comparison.csv)          1,203.8 kWh/m²/yr
-      pvlib Ineichen clear-sky at the study-area centroid
-        (src/validation/pvlib_benchmark_validation.py)   2,158.8 kWh/m²/yr
-    The clear-sky figure is an upper bound (no cloud cover) and is used
-    only inside the benchmark script; it does not feed these metrics.
+    Source: Global Solar Atlas v2, computed from
+    outputs/validation/gsa_comparison.csv as the mean of `mean_ghi` over
+    the 671 occupied 500 m grid cells (3.298140 kWh/m²/day) × 365.
+    This is reproducible from this repository via
+    src/analysis/gsa_external_validation.py.
+
+    Cross-check: NASA POWER 2001–2020 climatology at 28.228 N, 112.939 E
+    gives 3.2678 kWh/m²/day = 1,192.7 kWh/m²/yr, i.e. 0.9% below the GSA
+    figure. NOTE: the NASA POWER value is supplied externally — this
+    repository contains no NASA POWER retrieval code or dataset, so that
+    cross-check cannot be re-derived here.
+
+    Supersedes a hard-coded 1300.0 whose provenance could not be
+    established. Generation and CO₂ scale linearly with this constant
+    (factor 0.926016); deployable area does not depend on it at all.
+
+    For contrast, the pvlib Ineichen clear-sky value at the study-area
+    centroid is 2,158.8 kWh/m²/yr — an upper bound with no cloud cover,
+    used only inside the benchmark script. It does not feed these metrics.
 
 performance_ratio (0.80):
     System-level efficiency factor covering inverter losses, wiring,
@@ -65,6 +74,9 @@ Outputs
 outputs/planning_metrics_summary.csv     — building-level detail (HP only)
 outputs/planning_metrics_aggregate.csv   — single-row aggregate summary
 outputs/priority_grids.csv               — priority grids with metrics
+outputs/planning_metrics_priority_aggregate.csv
+                                         — priority-grid subset totals and
+                                           shares (manuscript Table 10)
 """
 
 from pathlib import Path
@@ -81,11 +93,16 @@ import numpy as np
 CONFIG = {
     "utilisation_factor":            0.65,    # fraction of rooftop usable
     "panel_efficiency":              0.20,    # (dimensionless)
-    "irradiance_kwh_per_m2_year":    1300.0,  # kWh/m²/yr — external constant, see docstring
+    "irradiance_kwh_per_m2_year":    1203.8211,  # kWh/m²/yr — GSA v2, see docstring
     "performance_ratio":             0.80,    # system PR
     "grid_emission_factor_kg_per_kwh": 0.5703,  # kg CO₂eq/kWh
     "priority_top_fraction":         0.20,   # top 20 % grids by HP ratio
 }
+
+# External reference figure, not derived here: Changsha total societal
+# electricity consumption in 2022, GWh. Used only to express the estimated
+# generation as a share of demand.
+CITY_ANNUAL_CONSUMPTION_GWH = 51679.0
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -97,6 +114,7 @@ OUTPUT_DIR     = Path("outputs")
 SUMMARY_CSV    = OUTPUT_DIR / "planning_metrics_summary.csv"
 AGGREGATE_CSV  = OUTPUT_DIR / "planning_metrics_aggregate.csv"
 PRIORITY_CSV   = OUTPUT_DIR / "priority_grids.csv"
+PRIORITY_AGG_CSV = OUTPUT_DIR / "planning_metrics_priority_aggregate.csv"
 
 
 # ---------------------------------------------------------------------------
@@ -146,6 +164,30 @@ def compute_co2_reduction(kwh_per_year: pd.Series, cfg: dict) -> pd.Series:
     CO₂_reduced = E_annual (kWh) × EF (kg CO₂/kWh) / 1000
     """
     return kwh_per_year * cfg["grid_emission_factor_kg_per_kwh"] / 1000.0
+
+
+def assign_to_grid(hp: gpd.GeoDataFrame, grid: gpd.GeoDataFrame) -> pd.Series:
+    """
+    Return a grid_id per high-potential building.
+
+    Buildings are assigned by CENTROID with predicate="within", matching
+    grid_solar_aggregation.py — the same convention that produced the
+    grid_id values in priority_grids.csv. Joining the full polygon instead
+    would drop every building straddling a cell boundary.
+    """
+    utm = hp.estimate_utm_crs()
+    cent = hp[["geometry"]].to_crs(utm)
+    cent["geometry"] = cent.geometry.centroid
+
+    joined = gpd.sjoin(
+        cent,
+        grid[["grid_id", "geometry"]].to_crs(utm),
+        how="left",
+        predicate="within",
+    ).drop(columns=["index_right"], errors="ignore")
+    # sjoin can emit duplicates if grid cells overlap; keep the first match
+    joined = joined[~joined.index.duplicated(keep="first")]
+    return joined.reindex(hp.index)["grid_id"]
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +335,65 @@ def main() -> None:
 
     priority[priority_cols].to_csv(PRIORITY_CSV, index=False)
     logging.info("Saved priority grids: %s", PRIORITY_CSV)
+
+    # ------------------------------------------------------------------
+    # Priority-grid subset aggregate (manuscript Table 10)
+    #
+    # Computed here rather than by hand, because generation is exactly
+    # proportional to deployable area in this model:
+    #     E = A_deploy × η × G × PR
+    # with η, G and PR global constants. The share of generation falling in
+    # the priority grids therefore EQUALS the share of deployable area, by
+    # construction. Any table reporting two different shares is internally
+    # inconsistent.
+    # ------------------------------------------------------------------
+    hp = hp.copy()
+    hp["grid_id"] = assign_to_grid(hp, grid).values
+    priority_ids = set(priority["grid_id"].astype(int))
+    in_priority = hp["grid_id"].notna() & hp["grid_id"].astype("Int64").isin(priority_ids)
+
+    hp_pri = hp[in_priority]
+    pri_deploy_m2 = hp_pri["deployable_area_m2"].sum()
+    pri_kwh       = hp_pri["annual_kwh"].sum()
+    pri_co2_t     = hp_pri["annual_co2_t"].sum()
+
+    share_area = pri_deploy_m2 / total_deploy_m2
+    share_gen  = pri_kwh / total_kwh_year
+    kwh_per_km2_deploy = (
+        cfg["panel_efficiency"] * cfg["irradiance_kwh_per_m2_year"] * cfg["performance_ratio"]
+    )
+
+    pri_row = {
+        "n_priority_grids":               len(priority),
+        "priority_cutoff_hp_ratio":       float(cutoff),
+        "hp_buildings_in_priority":       int(len(hp_pri)),
+        "hp_buildings_total":             int(len(hp)),
+        "priority_deployable_area_m2":    pri_deploy_m2,
+        "priority_deployable_area_km2":   pri_deploy_m2 / 1e6,
+        "priority_annual_generation_gwh": pri_kwh / 1e6,
+        "priority_annual_co2_kt":         pri_co2_t / 1000.0,
+        "share_of_deployable_area_pct":   100.0 * share_area,
+        "share_of_generation_pct":        100.0 * share_gen,
+        "share_discrepancy_pp":           100.0 * (share_gen - share_area),
+        "gwh_per_km2_deployable":         kwh_per_km2_deploy,
+        "city_consumption_2022_gwh":      CITY_ANNUAL_CONSUMPTION_GWH,
+        "total_share_of_city_demand_pct": 100.0 * (total_kwh_year / 1e6) / CITY_ANNUAL_CONSUMPTION_GWH,
+        "priority_share_of_city_demand_pct": 100.0 * (pri_kwh / 1e6) / CITY_ANNUAL_CONSUMPTION_GWH,
+    }
+    pd.DataFrame([pri_row]).to_csv(PRIORITY_AGG_CSV, index=False)
+    logging.info("Saved priority subset aggregate: %s", PRIORITY_AGG_CSV)
+
+    logging.info("--- Priority-grid subset (%d grids) ---", len(priority))
+    logging.info("  HP buildings inside priority grids: %d of %d", len(hp_pri), len(hp))
+    logging.info("  Deployable rooftop area:  %.4f km²", pri_deploy_m2 / 1e6)
+    logging.info("  Annual generation:        %.4f GWh/year", pri_kwh / 1e6)
+    logging.info("  Annual CO₂ reduction:     %.4f kt CO₂eq/year", pri_co2_t / 1000.0)
+    logging.info("  Share of deployable area: %.4f %%", 100.0 * share_area)
+    logging.info("  Share of generation:      %.4f %%  (must equal the line above)",
+                 100.0 * share_gen)
+    if abs(share_gen - share_area) > 1e-12:
+        logging.warning("  Shares differ by %.3e pp — the model no longer scales linearly.",
+                        100.0 * (share_gen - share_area))
     logging.info("Done.")
 
 
