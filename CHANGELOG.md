@@ -5,6 +5,53 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.6.0] — 2026-08-09
+
+### Fixed — affects Supplementary Table S3
+
+#### Height-sensitivity threshold is derived, not hard-coded
+
+`height_proxy_sensitivity.py` carried `BASELINE_Q66 = 45.513`, a rounded literal.
+The true q66 is 45.51261227233157, so the rounded value sat *above* the real
+boundary and excluded the two buildings scoring inside that gap. The baseline
+high-potential count came out as 6,409 against the 6,411 reported everywhere
+else in the paper.
+
+The threshold is now derived at runtime from the pipeline's stored
+`solar_potential_score`, using the same rule as `baseline_solar_potential.py`
+(`valid_scores.quantile(0.66)`). It is no longer hard-coded anywhere, so the two
+cannot drift apart again. The figure caption picks up the derived value as well.
+
+Rebuilt Table S3 (mean scores are unaffected — the threshold does not enter
+them):
+
+| Perturbation | Factor | Mean score | Change | HP count | HP change | HP fraction |
+|---:|---:|---:|---:|---:|---:|---:|
+| −30% | 0.7 | 43.578590 | −0.6986% | 5,960 | **−7.0348%** | 0.316097 |
+| −20% | 0.8 | 43.701964 | −0.4175% | 6,132 | **−4.3519%** | 0.325219 |
+| −10% | 0.9 | 43.802166 | −0.1892% | 6,281 | **−2.0278%** | 0.333121 |
+| **0%** | 1.0 | 43.885185 | 0.0000% | **6,411** | 0.0000% | 0.340016 |
+| +10% | 1.1 | 43.955104 | +0.1593% | 6,508 | **+1.5130%** | 0.345160 |
+| +20% | 1.2 | 44.014805 | +0.2954% | **6,601** | **+2.9637%** | 0.350093 |
+| +30% | 1.3 | 44.066380 | +0.4129% | 6,680 | **+4.1959%** | 0.354283 |
+
+Only two absolute counts move: the baseline (6,409 → 6,411) and the +20% row
+(6,599 → 6,601). The other five are unchanged; the two boundary buildings fall
+inside the band only at those factors. Every percentage change shifts slightly
+because the denominator changed.
+
+Revised ranges for the manuscript:
+
+    mean score      −0.6986% to +0.4129%   (unchanged)
+    HP count        −7.0348% to +4.1959%   (was −7.0058% to +4.2284%)
+
+This supersedes the "Correction — Supplementary Table S3 range" note in 1.5.0,
+which reported the ranges as computed against the 6,409 baseline. The correction
+recorded there — that the previously published upper bound of +7.0% was
+wrong — still stands; only the exact figures are updated.
+
+---
+
 ## [1.5.0] — 2026-08-09
 
 ### Documentation — Section 4.7 renumbering

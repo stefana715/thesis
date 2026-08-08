@@ -15,8 +15,11 @@ Scoring formula (mirrors baseline_solar_potential.py)
     base_score  = 0.65 * area_score + 0.35 * height_score
     solar_potential_score = clip(base_score * category_multiplier * 100, 0, 100)
 
-Classification uses the *baseline* q66 threshold (45.513) so that all
-perturbation scenarios are compared against the same reference boundary.
+Classification uses the *baseline* q66 threshold so that all perturbation
+scenarios are compared against the same reference boundary. That threshold is
+derived at runtime from the pipeline's stored solar_potential_score, exactly as
+baseline_solar_potential.py derives it, so the baseline high-potential count
+matches the 6,411 reported elsewhere.
 
 Inputs
 ------
@@ -57,8 +60,13 @@ CATEGORY_MULTIPLIERS = {
     "mixed_unknown": 0.95,
 }
 
-# Baseline q66 threshold (verified pipeline value)
-BASELINE_Q66 = 45.513
+# Tier boundary. Derived at runtime from the pipeline's own scores rather than
+# hard-coded: this file previously carried the rounded literal 45.513, which sits
+# above the true q66 of 45.51261227233157 and therefore excluded the two
+# buildings scoring inside that gap. The baseline high-potential count came out
+# as 6,409 against the 6,411 reported everywhere else. Deriving the threshold
+# keeps the two in step automatically.
+Q66_QUANTILE = 0.66
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +144,7 @@ def score_with_perturbation(
 # Plotting
 # ---------------------------------------------------------------------------
 
-def make_sensitivity_plot(df: pd.DataFrame, baseline_row: pd.Series,
+def make_sensitivity_plot(df: pd.DataFrame, baseline_row: pd.Series, baseline_q66: float,
                           output_path: Path) -> None:
     """
     Three-panel figure:
@@ -176,7 +184,7 @@ def make_sensitivity_plot(df: pd.DataFrame, baseline_row: pd.Series,
 
     fig.suptitle(
         "Height-Proxy Sensitivity: Effect of ±30 % Height Perturbation\n"
-        "(Changsha Urban Core, baseline q66 = 45.513)",
+        f"(Changsha Urban Core, baseline q66 = {baseline_q66:.4f})",
         fontsize=14,
         y=1.03,
     )
@@ -218,10 +226,24 @@ def main() -> None:
             buildings["footprint_area_m2"], errors="coerce"
         ).fillna(0)
 
+    # Derive the tier boundary the same way baseline_solar_potential.py does,
+    # from the pipeline's own scores. Never hard-code or round it.
+    valid_scores = pd.to_numeric(
+        buildings["solar_potential_score"], errors="coerce"
+    ).dropna()
+    if valid_scores.empty:
+        raise ValueError("No valid numeric solar_potential_score values found.")
+    baseline_q66 = float(valid_scores.quantile(Q66_QUANTILE))
+    n_hp_pipeline = int((valid_scores >= baseline_q66).sum())
+    logging.info(
+        "Baseline q66 derived from pipeline scores: %.14f (high-potential: %d)",
+        baseline_q66, n_hp_pipeline,
+    )
+
     rows = []
     for delta in PERTURBATION_FACTORS:
         logging.info("Evaluating perturbation %+.0f %% …", delta * 100)
-        row = score_with_perturbation(buildings, delta, BASELINE_Q66)
+        row = score_with_perturbation(buildings, delta, baseline_q66)
         logging.info(
             "  factor=%.2f → mean_score=%.3f, HP count=%d (%.1f%%)",
             row["height_factor"],
@@ -237,7 +259,7 @@ def main() -> None:
     print(df.to_string(index=False))
 
     baseline_row = df[df["perturbation_pct"] == 0].iloc[0]
-    make_sensitivity_plot(df, baseline_row, OUTPUT_FIG)
+    make_sensitivity_plot(df, baseline_row, baseline_q66, OUTPUT_FIG)
     logging.info("Done.")
 
 
