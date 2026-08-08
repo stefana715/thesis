@@ -120,17 +120,28 @@ def build_grid_scores(
     """
     Spatial-join buildings to grid cells and return per-grid mean scores
     for each score column. Only occupied grids returned.
+
+    Buildings are assigned by CENTROID, matching the official grid product
+    (grid_solar_aggregation.py). Joining the full building polygon with
+    predicate="within" instead — as this function used to — silently drops
+    every building straddling a cell boundary, which cost 27 of 671 occupied
+    cells and shifted the grid-level correlations.
     """
-    logging.info("  Spatial joining buildings → grid cells…")
+    logging.info("  Spatial joining building centroids → grid cells…")
+    utm = gdf.estimate_utm_crs()
+    cent = gdf[["geometry"] + score_cols].to_crs(utm)
+    cent["geometry"] = cent.geometry.centroid
+
     joined = gpd.sjoin(
-        gdf[["geometry"] + score_cols],
-        grid[["grid_id", "geometry"]],
+        cent,
+        grid[["grid_id", "geometry"]].to_crs(utm),
         how="left",
         predicate="within",
     ).drop(columns=["index_right"], errors="ignore")
     joined = joined.dropna(subset=["grid_id"])
     joined["grid_id"] = joined["grid_id"].astype(int)
     grid_means = joined.groupby("grid_id")[score_cols].mean()
+    logging.info("  %d occupied grid cells", len(grid_means))
     return grid_means
 
 
