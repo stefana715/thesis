@@ -5,6 +5,80 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.5.0] — 2026-08-09
+
+### Added
+
+#### 500 m grid product is now tracked
+
+`data/processed/grid_changsha_urban_core_solar_baseline.geojson` (1.23 MB) was
+excluded by the blanket `data/processed/*` ignore rule, yet it is a required
+`--grid` input for eleven scripts across planning, sensitivity and validation.
+A repository snapshot without it — including any Zenodo deposit — could not be
+run at all. Added via a targeted negation so the rest of `data/processed`
+remains ignored.
+
+#### Supplementary Table S8 — priority-grid threshold scenarios
+
+`src/planning/priority_threshold_scenarios.py` and
+`outputs/planning/priority_threshold_scenarios.csv` sweep the priority-grid
+cutoff over HP-ratio thresholds 0.60/0.70/0.75/0.80/0.90:
+
+| HP ratio | Grids | HP buildings | km² | GWh/yr | kt CO₂ | Share of area = share of generation |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0.60 | 216 | 2,190 | 3.3559 | 646.3754 | 368.6279 | 39.5602% |
+| 0.70 | 165 | 1,669 | 2.4564 | 473.1303 | 269.8262 | 28.9571% |
+| **0.75** | **146** | **1,314** | **2.0879** | **402.1525** | **229.3476** | **24.6130%** |
+| 0.80 | 120 | 938 | 1.6402 | 315.9301 | 180.1749 | 19.3359% |
+| 0.90 | 90 | 595 | 1.1871 | 228.6439 | 130.3956 | 13.9937% |
+
+0.75 is the cutoff the main analysis resolves to (top 20% of occupied cells);
+that row reproduces Table 10 exactly, which cross-checks the two code paths.
+Parameters and the grid-assignment rule are imported from `planning_metrics.py`
+rather than restated. Area and generation shares are reported separately even
+though identical by construction, so the table is self-checking; measured
+divergence is 5.6×10⁻¹⁵ pp.
+
+### Documentation
+
+`README.md` gains a **Data availability** section recording what is tracked,
+how to obtain the two untracked extracts (`data/raw` 105 MB OSM,
+`data/external` 291 MB Overture), and the fact that neither is needed to
+reproduce a published number — the footprint-quality statistics come from the
+committed 142 kB archive via `--from-archive`.
+
+### Clarification — two grid statistics that look contradictory
+
+The mean high-potential ratio is reported as 0.175 in the main text and 0.450 in
+Supplementary S1/S2. Both are correct; they differ only in denominator, and the
+relationship is exact because `grid_solar_aggregation.py` assigns
+`high_potential_ratio = 0` to empty cells:
+
+    mean over all 1,722 grid cells        0.175490    (main text)
+    mean over 671 occupied cells          0.450364    (Supplementary S1/S2)
+    0.450364 x 671/1722                 = 0.175490
+
+`grid_solar_baseline_summary.csv` contains all 1,722 rows, so a plain `.mean()`
+on it yields 0.175490. `grid_size_comparison.csv` and `threshold_comparison.csv`
+both filter to occupied cells (`grid_size_sensitivity.py:92`,
+`threshold_sensitivity.py:104`) and yield 0.450364. Each figure should state its
+denominator.
+
+### Correction — Supplementary Table S3 range
+
+The height-perturbation range was quoted as −7.0% to +7.0%. The upper bound is
+wrong; the actual range of the high-potential count is **−7.0058% to +4.2284%**,
+and the mean-score range is −0.6986% to +0.4129%. The asymmetry follows from the
+`log1p` transform, which compresses upward perturbations more than downward ones.
+
+Note also that this table's baseline high-potential count is 6,409, not the
+6,411 reported elsewhere. `height_proxy_sensitivity.py:61` uses the rounded
+threshold 45.513 while the pipeline uses the exact q66 of 45.51261227233157;
+exactly two buildings fall in between. Both use `>=`, so the difference is
+threshold rounding alone.
+
+---
+
 ## [1.4.0] — 2026-08-09
 
 ### Changed — affects reported numbers

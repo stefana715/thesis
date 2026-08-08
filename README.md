@@ -36,6 +36,72 @@ numpy, scipy, matplotlib, scikit-learn, pyyaml, jupyter.
 
 ---
 
+## Data availability
+
+### Tracked in this repository
+
+Everything needed to reproduce the published results is committed:
+
+| File | Size | Role |
+|---|---:|---|
+| `data/processed/buildings_changsha_urban_core_solar_baseline.geojson` | 68 MB | 18,855 scored urban-core buildings — input to every analysis |
+| `data/processed/grid_changsha_urban_core_solar_baseline.geojson` | 1.2 MB | 500 m grid product — required `--grid` input for nearly every script |
+| `data/external/osm_quality_match_archive.geojson` | 142 kB | Matched OSM/Overture geometries for the footprint-quality check |
+| `outputs/`, `figure/` | — | All reported tables, CSVs and figures |
+
+### Not tracked — obtain separately
+
+Two inputs are too large for version control. Neither is needed to reproduce any
+published number; both are needed only to regenerate the tracked products from
+scratch.
+
+**`data/raw/buildings_changsha.geojson`** (105 MB) — raw OpenStreetMap building
+extract for the Changsha municipal extent.
+
+```bash
+python src/data/download_osm_buildings.py
+```
+
+Re-downloading fetches current OSM, which has changed since the original
+extract; the tracked `data/processed/` products are the frozen state the paper
+reports. Use them rather than regenerating if you want the published numbers.
+
+**`data/external/overture_buildings_changsha.geojsonl`** (291 MB) — Overture
+Maps building footprints for the Changsha bounding box, used as the reference
+dataset in the footprint-quality check.
+
+```bash
+python osm_quality_validation.py --download-only     # release pinned to 2026-07-22.0
+```
+
+**This download is not required.** The full footprint-quality analysis
+(Section 4.7.6) reproduces from the committed 142 kB archive with no network
+access:
+
+```bash
+python osm_quality_validation.py --from-archive
+```
+
+which returns the reported statistics exactly — 100/100 matched, mean IoU 0.989,
+r = 0.998, ρ = 0.999, MAPE 1.1%, 2 buildings beyond ±20%. The archive holds the
+geometries of the 100 sampled OSM buildings and their matched Overture
+counterparts, with GERS identifiers and provenance fields.
+
+Keeping that archive matters because Overture retains only its two most recent
+releases: the release originally cited in the manuscript (2026-03-18.0) has
+already been retired and returns HTTP 404. The pinned 2026-07-22.0 snapshot will
+age out the same way. The archive is what makes the check reproducible after
+that happens — a pinned release tag alone is not enough.
+
+### Archiving
+
+For a Zenodo deposit, the git snapshot is self-sufficient: it contains every
+input required to re-run the pipeline end to end. The two untracked extracts
+above may be attached separately if byte-level provenance of the raw inputs is
+wanted, but no published figure depends on them.
+
+---
+
 ## Manuscript mapping
 
 Which script produces which reported number, table, or figure. Section numbers
