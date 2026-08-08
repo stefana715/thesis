@@ -5,6 +5,108 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.7.0] — 2026-08-09
+
+### Added — OSM completeness assessment
+
+`src/validation/osm_completeness.py` quantifies how much of the Changsha urban
+core building stock OSM actually contains, and — the point of the exercise —
+whether the missing stock is spatially structured in a way that would make the
+priority grids track survey density rather than solar potential.
+
+#### Overture is a valid completeness reference
+
+Checked first, because a reference largely derived from OSM would be
+circular. Over the full extraction bbox (1,076,966 records):
+
+| Source | Buildings | Share |
+|---|---:|---:|
+| `doi:10.5281/zenodo.8174931` | 1,021,866 | **94.88%** |
+| OpenStreetMap | 55,100 | 5.12% |
+
+No Microsoft or Google contribution in this region. Within the urban core the
+split is 80.43% / 19.57%. This also resolves an apparent contradiction with
+Section 4.7.6, where 96 of 100 matched pairs are geometrically identical: the
+buildings that *can* be matched are the ones OSM already has. Overture is
+therefore unsuitable as a geometric-accuracy reference but suitable as a
+completeness reference.
+
+#### Extents are not comparable municipality-wide
+
+The OSM extract follows the Changsha administrative boundary (11,829.4 km²,
+reaching 114.256° E); the Overture extract used a bbox stopping at 113.2° E and
+covering only 48.7% of it. Municipality-wide counts are not comparable and are
+reported only over the intersection. The urban core lies entirely inside the
+bbox, so urban-core figures are directly comparable.
+
+| Region | OSM | Overture | Coverage |
+|---|---:|---:|---:|
+| Municipality (not comparable) | 33,374 | — | — |
+| Admin boundary ∩ bbox (5,764 km²) | 32,479 | 750,128 | 4.33% |
+| **Urban core (176 km²)** | **18,855** | **65,487** | **28.79%** |
+
+#### Coverage by rooftop area, not building count
+
+Count ratios are distorted by whether a structure is mapped as one polygon or
+several, and OSM preferentially maps large buildings. Per occupied 500 m cell:
+
+| Metric | min | q25 | median | q75 | max | mean |
+|---|---:|---:|---:|---:|---:|---:|
+| By building count | 0.0053 | 0.1128 | 0.2949 | 0.5090 | 1.5000 | 0.3359 |
+| **By rooftop area** | 0.0051 | 0.3390 | **0.6181** | 0.8269 | 2.7284 | 0.5811 |
+
+Aggregate over the urban core: **30.72% by count, 61.44% by area**
+(18.6745 km² of 30.3951 km²). Cells below 20% coverage: 259 by count, 83 by
+area. Below 50%: 489 by count, 252 by area. Ratios are reported unclipped;
+8 cells exceed 1.0 (max 2.7284) and 6 more sit at exactly 1.0, mostly where OSM
+maps a courtyard or complex as a single large polygon.
+
+#### The missing stock is NOT spatially structured
+
+| Relationship | Spearman ρ | p |
+|---|---:|---:|
+| coverage_count vs mean score | −0.2749 | 4.94×10⁻¹³ |
+| coverage_count vs high-potential ratio | −0.2446 | 1.52×10⁻¹⁰ |
+| **coverage_area vs mean score** | **+0.0385** | **0.321** |
+| **coverage_area vs high-potential ratio** | **+0.0558** | **0.150** |
+| coverage_area vs distance from centre | −0.0818 | 0.035 |
+
+Priority (146) versus non-priority (521) cells, coverage_area:
+
+| Group | n | min | q25 | median | q75 | max | mean |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Priority | 146 | 0.0276 | 0.3378 | 0.5873 | 0.7935 | 2.4745 | 0.5666 |
+| Non-priority | 521 | 0.0051 | 0.3395 | 0.6275 | 0.8364 | 2.7284 | 0.5852 |
+
+Mann-Whitney U = 35,541, **p = 0.226**, AUC = 0.4672, rank-biserial
+r = −0.0655 — not significant, and directionally priority cells have
+*slightly lower* coverage, the opposite of a survey-density explanation.
+
+The count-based metric gives the opposite verdict (U = 24,273, p = 2.3×10⁻¹¹,
+r = −0.3618). That contrast is itself the finding: it is an artefact of OSM's
+preference for large buildings, not evidence of survey-density bias. In
+high-scoring cells OSM covers most of the rooftop area with a few large
+polygons while Overture splits the same area into many small ones.
+
+#### Consequences for the manuscript
+
+1. **Relative screening stands.** The priority grids are not tracking survey
+   density.
+2. **Aggregate totals must be scoped.** 8.4829 km², 1,633.9024 GWh/yr and
+   931.8146 kt CO₂/yr describe the *OSM-mapped* stock, roughly 61% of the
+   rooftop area visible in the urban core. They must not be read as the total
+   potential of the Changsha urban core.
+3. **92 cells are invisible to the framework** — they hold Overture buildings
+   but zero OSM buildings (4,102 buildings, 1.2096 km² of roof). They can
+   neither be scored nor selected as priority cells. This does not affect the
+   uniformity result, since those cells are not among the 671, but it is a
+   systematic omission.
+
+Outputs: `completeness_per_grid.csv` (1,722 rows), `completeness_summary.csv`,
+`completeness_provenance.csv`, `completeness_provenance_fullbbox.csv`.
+
+---
+
 ## [1.6.0] — 2026-08-09
 
 ### Fixed — hard-coded q66 thresholds replaced with runtime derivation

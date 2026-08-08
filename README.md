@@ -151,6 +151,7 @@ version before submission.
 | `src/validation/proxy_composition_diagnostics.py` | SI text | Height-proxy composition, score-component variance, area-only counterfactual |
 | `src/validation/revision_audit.py` | audit CSVs | Provenance hunt across 39 correlation and 18 overlap definitions; priority-grid generation share; Overture independence check |
 | `src/validation/si_tables_and_shading_scope.py` | SI Tables A–B, Figure S4 | Height degeneracy vs benchmark agreement (ρ = +0.9769, p = 1.66×10⁻¹³); shading scope by density quintile |
+| `src/validation/osm_completeness.py` | completeness CSVs | OSM vs Overture coverage: 61.44% by rooftop area in the urban core; coverage uncorrelated with score (p = 0.321), high-potential ratio (p = 0.150) and priority selection (Mann-Whitney p = 0.226) |
 
 ---
 
@@ -213,6 +214,20 @@ of generation therefore *equals* its share of deployable area by construction �
 a table reporting two different shares for the same subset is internally
 inconsistent, not a rounding artefact. `planning_metrics.py` now computes the
 priority-grid subset itself and asserts the two shares agree.
+
+**OSM covers about 61% of the mapped rooftop area, and the totals are scoped
+accordingly.** Against Overture Maps — a valid reference here, since 94.88% of
+its Changsha stock comes from a non-OSM source — the urban core holds 18,855 OSM
+buildings against 65,487 Overture buildings, and 18.6745 km² of OSM rooftop
+against 30.3951 km². The reported 8.4829 km² deployable area and
+1,633.9024 GWh/yr therefore describe the **OSM-mapped stock**, not the total
+potential of the Changsha urban core. Crucially the shortfall is not spatially
+structured: per-cell coverage by area is uncorrelated with mean score
+(ρ = +0.0385, p = 0.321), with high-potential ratio (ρ = +0.0558, p = 0.150) and
+with priority selection (Mann-Whitney p = 0.226), so the relative screening and
+the priority grids are not artefacts of survey density. A separate omission:
+92 cells contain Overture buildings but no OSM buildings at all (4,102
+buildings, 1.2096 km²) and are invisible to the framework.
 
 **The annual irradiance constant is uniform in space.** `planning_metrics.py`
 applies 1,203.8211 kWh/m²/yr (Global Solar Atlas, mean over the 671 occupied
