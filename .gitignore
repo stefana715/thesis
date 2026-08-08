@@ -42,5 +42,7 @@ outputs/tables/*
 
 # Keep placeholders
 !outputs/figures/.gitkeep
-!outputs/tables/.gitkeepwriting /
+!outputs/tables/.gitkeep
+
+# Manuscript drafts kept outside version control
 writing/
