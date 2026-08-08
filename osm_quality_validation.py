@@ -94,7 +94,7 @@ CHANGSHA_BBOX = (111.8, 27.8, 113.2, 28.6)
 # To deliberately use a different snapshot, pass --release <tag> on the command
 # line, or --release latest to resolve the newest tag via _get_latest_release().
 # Neither is the default.
-OVERTURE_RELEASE = "2026-03-18.0"
+OVERTURE_RELEASE = "2026-07-22.0"
 
 
 # ============================================================
@@ -240,8 +240,9 @@ def download_overture_buildings(output_path=None, bbox=None, release=None):
         print(f"Reading {path.split('/')[-1]} from S3...")
         try:
             dataset = ds.dataset(path, filesystem=s3)
-            # read only geometry + bbox columns to save memory
-            cols = ["geometry", "bbox"]
+            # geometry + bbox for filtering, plus the GERS id so matched
+            # buildings stay citable after the release is retired upstream
+            cols = ["geometry", "bbox", "id"]
             available = [f.name for f in dataset.schema]
             cols = [c for c in cols if c in available]
             batches = dataset.to_batches(filter=filter_expr, columns=cols)
@@ -266,6 +267,9 @@ def download_overture_buildings(output_path=None, bbox=None, release=None):
     print(f"Writing GeoJSONL to {output_path} ...")
 
     geom_col = table.column("geometry")
+    id_col = table.column("id") if "id" in table.schema.names else None
+    if id_col is None:
+        logging.warning("Overture schema has no 'id' column — GERS ids will be unavailable.")
 
     written = 0
     skipped = 0
@@ -285,10 +289,15 @@ def download_overture_buildings(output_path=None, bbox=None, release=None):
                 if not (xmin <= cx <= xmax and ymin <= cy <= ymax):
                     skipped += 1
                     continue
+                props = {}
+                if id_col is not None:
+                    gers = id_col[i].as_py()
+                    if gers:
+                        props["id"] = gers
                 feat = {
                     "type": "Feature",
                     "geometry": geom.__geo_interface__,
-                    "properties": {}
+                    "properties": props,
                 }
                 fout.write(json.dumps(feat) + "\n")
                 written += 1
@@ -360,6 +369,22 @@ def stratified_sample(buildings, n_total=N_SAMPLE, n_strata=N_STRATA, seed=RANDO
 # SPATIAL MATCHING
 # ============================================================
 
+def _feature_id(row):
+    """
+    Best-effort stable identifier for an OSM or Overture feature.
+
+    OSM rows carry 'id' (and sometimes 'element'); Overture features carry a
+    GERS 'id'. Falls back to the row's index label so a pair is always
+    traceable even when the source lacks an id field.
+    """
+    for field in ("id", "gers_id", "osm_id", "element"):
+        if field in row.index:
+            val = row[field]
+            if pd.notna(val) and str(val).strip():
+                return str(val)
+    return f"idx:{row.name}"
+
+
 def compute_iou(geom_a, geom_b):
     """Compute intersection-over-union between two geometries."""
     try:
@@ -390,6 +415,7 @@ def match_buildings(osm_sample, ref_buildings, max_dist_m=MAX_CENTROID_DISTANCE_
     ref_sindex = ref_proj.sindex
 
     results = []
+    pairs = []   # (osm_index, osm_geom_proj, ref_geom_proj|None, osm_id, ref_id)
     for idx, osm_row in osm_proj.iterrows():
         osm_centroid = osm_row["centroid"]
         osm_area = osm_row.geometry.area
@@ -436,6 +462,8 @@ def match_buildings(osm_sample, ref_buildings, max_dist_m=MAX_CENTROID_DISTANCE_
                 "iou": best_iou,
                 "centroid_dist_m": best_dist,
             })
+            pairs.append((idx, osm_row.geometry, best_match.geometry,
+                          _feature_id(osm_row), _feature_id(best_match)))
         else:
             results.append({
                 "osm_index": idx,
@@ -446,8 +474,114 @@ def match_buildings(osm_sample, ref_buildings, max_dist_m=MAX_CENTROID_DISTANCE_
                 "iou": best_iou if best_iou > 0 else np.nan,
                 "centroid_dist_m": best_dist,
             })
+            pairs.append((idx, osm_row.geometry, None, _feature_id(osm_row), None))
 
-    return pd.DataFrame(results)
+    return pd.DataFrame(results), pairs, utm_crs
+
+
+# ============================================================
+# MINIMAL REPRODUCIBLE ARCHIVE
+# ============================================================
+#
+# Overture retains only the two most recent releases, so pinning a release tag
+# does not give long-term reproducibility — the pinned snapshot eventually
+# disappears upstream (as 2026-03-18.0 already has). The archive below stores
+# the only Overture data this analysis actually depends on: the geometries of
+# the buildings matched to the 100 sampled OSM footprints. It is a few hundred
+# kB and is committed, so every statistic in the OSM-quality section can be
+# recomputed with no network access and no dependence on Overture's retention
+# policy.
+#
+# Layout: one FeatureCollection, two features per sample_id —
+#   role="osm"       the sampled OSM footprint
+#   role="overture"  the matched Overture footprint (absent when unmatched)
+# Geometries are stored in EPSG:4326; areas and IoU are recomputed in the
+# local UTM CRS on read, exactly as the live path does.
+
+ARCHIVE_PATH = Path("data/external/osm_quality_match_archive.geojson")
+
+
+def export_archive(pairs, utm_crs, release, output_path=None):
+    """Write the matched OSM/Overture geometry pairs to a small GeoJSON."""
+    output_path = Path(output_path or ARCHIVE_PATH)
+    os.makedirs(output_path.parent, exist_ok=True)
+
+    records = []
+    for sample_id, (osm_idx, osm_geom, ref_geom, osm_id, ref_id) in enumerate(pairs):
+        common = {
+            "sample_id": sample_id,
+            "osm_index": int(osm_idx),
+            "osm_id": osm_id,
+            "overture_id": ref_id,
+            "matched": ref_geom is not None,
+            "overture_release": release,
+            "osm_source": str(OSM_BUILDINGS_PATH),
+            "provenance": (
+                f"OSM footprint from {OSM_BUILDINGS_PATH.name}; "
+                f"Overture Maps buildings release {release}"
+            ),
+        }
+        records.append({**common, "role": "osm", "geometry": osm_geom})
+        if ref_geom is not None:
+            records.append({**common, "role": "overture", "geometry": ref_geom})
+
+    gdf = gpd.GeoDataFrame(records, geometry="geometry", crs=utm_crs).to_crs("EPSG:4326")
+    gdf.to_file(output_path, driver="GeoJSON")
+    logging.info("Saved reproducible archive: %s (%d features, %.1f kB)",
+                 output_path, len(gdf), output_path.stat().st_size / 1024)
+    return output_path
+
+
+def match_from_archive(archive_path=None):
+    """
+    Recompute the match table from the committed archive.
+
+    Reproduces exactly what match_buildings() returns for the recorded pairs,
+    without contacting Overture. Areas and IoU are recomputed in the local UTM
+    CRS so the numbers are derived, not copied.
+    """
+    archive_path = Path(archive_path or ARCHIVE_PATH)
+    if not archive_path.exists():
+        return None, None
+
+    gdf = gpd.read_file(archive_path)
+    utm_crs = gdf.estimate_utm_crs()
+    proj = gdf.to_crs(utm_crs)
+
+    osm_rows = proj[proj["role"] == "osm"].set_index("sample_id")
+    ref_rows = proj[proj["role"] == "overture"].set_index("sample_id")
+
+    releases = sorted(set(gdf["overture_release"].dropna()))
+    logging.info("Archive: %d samples, %d matched, Overture release %s",
+                 len(osm_rows), len(ref_rows), ", ".join(releases) or "unknown")
+
+    results = []
+    for sample_id, osm_row in osm_rows.sort_index().iterrows():
+        osm_geom = osm_row.geometry
+        osm_area = osm_geom.area
+        if sample_id in ref_rows.index:
+            ref_geom = ref_rows.loc[sample_id].geometry
+            ref_area = ref_geom.area
+            results.append({
+                "osm_index": int(osm_row["osm_index"]),
+                "matched": True,
+                "osm_area_m2": osm_area,
+                "ref_area_m2": ref_area,
+                "area_diff_pct": (osm_area - ref_area) / ref_area * 100 if ref_area > 0 else np.nan,
+                "iou": compute_iou(osm_geom, ref_geom),
+                "centroid_dist_m": osm_geom.centroid.distance(ref_geom.centroid),
+            })
+        else:
+            results.append({
+                "osm_index": int(osm_row["osm_index"]),
+                "matched": False,
+                "osm_area_m2": osm_area,
+                "ref_area_m2": np.nan,
+                "area_diff_pct": np.nan,
+                "iou": np.nan,
+                "centroid_dist_m": np.nan,
+            })
+    return pd.DataFrame(results), releases
 
 
 # ============================================================
@@ -489,6 +623,24 @@ def compute_statistics(results):
         "mean_osm_area": round(matched["osm_area_m2"].mean(), 1),
         "mean_ref_area": round(matched["ref_area_m2"].mean(), 1),
     }
+
+
+def print_summary(summary, source=""):
+    print()
+    print("=" * 60)
+    print("OSM FOOTPRINT QUALITY ASSESSMENT RESULTS")
+    print("(Reference: Overture Maps Buildings)")
+    if source:
+        print(f"Source: {source}")
+    print("=" * 60)
+    print(f"Buildings sampled:     {summary['n_sampled']}")
+    print(f"Successfully matched:  {summary['n_matched']} ({summary['match_rate_pct']}%)")
+    print(f"Pearson r:             {summary['pearson_r']}")
+    print(f"Spearman ρ:            {summary['spearman_rho']}")
+    print(f"MAPE:                  {summary['mape_pct']}%")
+    print(f">20% error:            {summary['exceed_20pct_count']} ({summary['exceed_20pct_pct']}%)")
+    print(f"Mean IoU:              {summary['mean_iou']}")
+    print()
 
 
 def make_scatter(results, summary, output_path):
@@ -545,6 +697,16 @@ def main():
     parser.add_argument("--release", default=None,
                         help=f"Overture release tag (default: pinned {OVERTURE_RELEASE}; "
                              f"pass 'latest' to resolve the newest tag instead)")
+    parser.add_argument("--from-archive", action="store_true",
+                        help="Recompute from the committed geometry archive "
+                             f"({ARCHIVE_PATH}) instead of the Overture extract. "
+                             "Requires no network access and no download.")
+    parser.add_argument("--archive-path", default=None,
+                        help=f"Archive location (default: {ARCHIVE_PATH})")
+    parser.add_argument("--tag", default="",
+                        help="Suffix for output filenames, e.g. --tag _r2026-07-22 writes "
+                             "osm_quality_results_r2026-07-22.csv. Use to compare runs "
+                             "without overwriting committed outputs.")
     args = parser.parse_args()
 
     setup_logging()
@@ -560,6 +722,31 @@ def main():
         ok = download_overture_buildings(release=release)
         if ok:
             print("\nDownload complete. Now run: python osm_quality_validation.py")
+        return
+
+    tag = args.tag
+    out_csv     = OUTPUT_CSV.with_name(f"{OUTPUT_CSV.stem}{tag}{OUTPUT_CSV.suffix}")
+    out_summary = OUTPUT_SUMMARY.with_name(f"{OUTPUT_SUMMARY.stem}{tag}{OUTPUT_SUMMARY.suffix}")
+    out_fig     = OUTPUT_FIG.with_name(f"{OUTPUT_FIG.stem}{tag}{OUTPUT_FIG.suffix}")
+
+    # ---- Archive-only path: no network, no Overture extract needed ----
+    if args.from_archive:
+        results, releases = match_from_archive(args.archive_path)
+        if results is None:
+            print(f"\nArchive not found: {args.archive_path or ARCHIVE_PATH}")
+            print("Run the live path once to generate it.")
+            return
+        summary = compute_statistics(results)
+        if summary is None:
+            return
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        results.to_csv(out_csv, index=False)
+        pd.DataFrame([summary]).to_csv(out_summary, index=False)
+        logging.info("Saved: %s", out_csv)
+        logging.info("Saved: %s", out_summary)
+        print_summary(summary, source=f"archive ({', '.join(releases) or 'unknown release'})")
+        make_scatter(results, summary, out_fig)
+        logging.info("Done.")
         return
 
     # ---- Load OSM buildings ----
@@ -601,7 +788,7 @@ def main():
 
     # ---- Match ----
     logging.info("Matching OSM buildings to Overture footprints...")
-    results = match_buildings(sample, ref_filtered)
+    results, pairs, utm_crs = match_buildings(sample, ref_filtered)
     n_matched = results["matched"].sum()
     logging.info(
         "Matched: %d / %d (%.1f%%)",
@@ -615,28 +802,19 @@ def main():
 
     # ---- Save outputs ----
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    results.to_csv(OUTPUT_CSV, index=False)
-    pd.DataFrame([summary]).to_csv(OUTPUT_SUMMARY, index=False)
-    logging.info("Saved: %s", OUTPUT_CSV)
-    logging.info("Saved: %s", OUTPUT_SUMMARY)
+    results.to_csv(out_csv, index=False)
+    pd.DataFrame([summary]).to_csv(out_summary, index=False)
+    logging.info("Saved: %s", out_csv)
+    logging.info("Saved: %s", out_summary)
+
+    # ---- Minimal reproducible archive ----
+    export_archive(pairs, utm_crs, release, args.archive_path)
 
     # ---- Print summary ----
-    print()
-    print("=" * 60)
-    print("OSM FOOTPRINT QUALITY ASSESSMENT RESULTS")
-    print("(Reference: Overture Maps Buildings)")
-    print("=" * 60)
-    print(f"Buildings sampled:     {summary['n_sampled']}")
-    print(f"Successfully matched:  {summary['n_matched']} ({summary['match_rate_pct']}%)")
-    print(f"Pearson r:             {summary['pearson_r']}")
-    print(f"Spearman ρ:            {summary['spearman_rho']}")
-    print(f"MAPE:                  {summary['mape_pct']}%")
-    print(f">20% error:            {summary['exceed_20pct_count']} ({summary['exceed_20pct_pct']}%)")
-    print(f"Mean IoU:              {summary['mean_iou']}")
-    print()
+    print_summary(summary, source=f"Overture release {release}")
 
     # ---- Figure ----
-    make_scatter(results, summary, OUTPUT_FIG)
+    make_scatter(results, summary, out_fig)
 
     logging.info("Done.")
 
