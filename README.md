@@ -124,12 +124,20 @@ identical to ρ(score, area) = 0.951. Agreement per zone tracks height
 degeneracy closely (ρ = +0.977 against the modal-height share, p = 1.7×10⁻¹³).
 
 **The OSM–Overture comparison is largely a self-comparison.** Of 100 sampled
-pairs, 96 are geometrically identical (IoU = 1.0, centroid distance < 1 µm) and
-78 match to exactly zero area difference, reflecting Overture's OSM provenance
-for this region. Only 4 pairs are genuinely independent; across those the mean
-IoU is 0.458 and the mean absolute area error is 28.2%. The reported aggregate
-figures (mean IoU 0.978, MAPE 1.1%) are dominated by the identical pairs and
-should not be read as an accuracy estimate.
+pairs, 96 are geometrically identical (IoU = 1.0, centroid distance < 1 µm),
+reflecting Overture's OSM provenance for this region. Only 4 pairs are genuinely
+independent; across those the mean IoU is 0.715 and the mean absolute area error
+is 27.6%. The reported aggregate figures (mean IoU 0.989, MAPE 1.1%) are
+dominated by the identical pairs and should not be read as an accuracy estimate.
+This holds on two Overture snapshots four months apart (2026-03-18.0 and
+2026-07-22.0), both giving 96/100 identical.
+
+**Overture inputs are archived, not re-downloadable.** Overture retains only its
+two most recent releases, so a pinned release tag does not survive long term —
+the release originally cited has already been retired. The matched geometries
+are therefore committed as `data/external/osm_quality_match_archive.geojson`
+(142 kB); `python osm_quality_validation.py --from-archive` reproduces every
+statistic with no network access.
 
 **Generation is exactly proportional to deployable area.** With uniform
 irradiance, panel efficiency and performance ratio, `E = A_deploy × η × G × PR`

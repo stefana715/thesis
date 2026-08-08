@@ -5,6 +5,85 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.4.0] — 2026-08-09
+
+### Changed — affects reported numbers
+
+#### OSM quality check re-run against Overture release 2026-07-22.0
+
+The release cited in Section 3.11 (2026-03-18.0) has been retired upstream and
+cannot be downloaded (see 1.3.0). The check is re-run against a currently
+available snapshot; `OVERTURE_RELEASE` is now `2026-07-22.0`.
+
+| Metric | 2026-03-18.0 (previous) | 2026-07-22.0 (new) |
+|---|---:|---:|
+| Matched | 100/100 = 100.0% | 100/100 = 100.0% |
+| Pearson r | 0.998 | 0.998 |
+| Spearman ρ | 0.997 | **0.999** |
+| MAPE | 1.1% | 1.1% |
+| Beyond ±20% | 3 | **2** |
+| Mean IoU | 0.978 | **0.989** |
+
+Independence check:
+
+| Metric | 2026-03-18.0 | 2026-07-22.0 |
+|---|---:|---:|
+| Geometrically identical pairs (IoU = 1.0) | 96/100 | **96/100** |
+| Genuinely independent pairs | 4 | 4 |
+| Mean IoU across those 4 | 0.4580 | 0.7149 |
+| Mean absolute area error across those 4 | 28.25% | 27.63% |
+
+The shared-provenance finding is unchanged and now confirmed on two snapshots
+four months apart: 96 of 100 sampled OSM buildings have a byte-identical
+counterpart in Overture. The aggregate figures describe self-comparison, not
+accuracy.
+
+The previously committed `osm_quality_results.csv` / `osm_quality_summary.csv`
+are **not** overwritten. New outputs carry a `_r2026-07-22` suffix, pending a
+decision on which release Section 3.11 should cite.
+
+#### GERS identifiers preserved during extraction
+
+The downloader requested only `["geometry", "bbox"]` and wrote
+`"properties": {}`, discarding the stable Overture identifier for every
+building. It now also requests `id`, so matched buildings remain citable after
+a release is retired.
+
+### Added
+
+#### Minimal reproducible archive
+
+`data/external/osm_quality_match_archive.geojson` (142 kB, committed) stores the
+only Overture data this analysis depends on: the geometries matched to the 100
+sampled OSM footprints. 200 features, two per `sample_id`
+(`role="osm"` / `role="overture"`), with `osm_id`, `overture_id` (GERS uuid),
+`overture_release`, `osm_source` and `provenance` fields. Geometries are in
+EPSG:4326; areas and IoU are recomputed in the local UTM CRS on read.
+
+New `--from-archive` mode recomputes every statistic from this file with no
+network access and no 246 MB extract. Verified to reproduce the live run
+exactly at reported precision (matched 100, r 0.998, ρ 0.999, MAPE 1.1%,
+>±20% 2, mean IoU 0.989); largest per-building deviation is 3.2×10⁻⁸ m² on area
+and 7.8×10⁻¹¹ on IoU, from the EPSG:4326 round trip.
+
+This closes the archival gap identified in 1.3.0: a pinned release tag alone
+cannot survive Overture's two-release retention policy.
+
+Also adds `--tag` to suffix output filenames, so alternative runs can be
+compared without overwriting committed results.
+
+### Known issue — one diagnostic is float-path dependent
+
+The count of sampled pairs whose area difference is *exactly* zero is 79 on the
+live path but 96 when recomputed from the archive: the round trip puts both
+geometries through the same transform and collapses last-bit differences. This
+statistic should not be quoted. The robust indicator of shared provenance is
+IoU = 1.0, which is 96/100 on both paths and on both releases. Earlier revision
+notes cited "78 of 100 match to exactly zero area difference" — that figure is
+an artefact of the computation path, not a property of the data.
+
+---
+
 ## [1.3.0] — 2026-08-09
 
 ### Changed
