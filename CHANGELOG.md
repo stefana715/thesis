@@ -7,9 +7,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [1.6.0] — 2026-08-09
 
-### Fixed — affects Supplementary Table S3
+### Fixed — hard-coded q66 thresholds replaced with runtime derivation
 
-#### Height-sensitivity threshold is derived, not hard-coded
+Two sensitivity scripts carried the rounded literal `45.513` as a live
+classification threshold. The true q66 is 45.51261227233157, so the rounded form
+sat *above* the real boundary and excluded the two buildings scoring in between,
+reporting a baseline high-potential count of 6,409 against the 6,411 used
+everywhere else. Both now derive the threshold at runtime from the pipeline's
+stored `solar_potential_score` with the same rule as
+`baseline_solar_potential.py` (`valid_scores.quantile(0.66)`), so they cannot
+drift again.
+
+Deliberately left alone: `Q66_FIXED_LEGACY` in `weight_sensitivity.py` and
+`Q66_FIXED` in `revision_audit.py` / `proxy_composition_diagnostics.py`, which
+exist to reproduce the superseded fixed-cutoff comparison, and the reference
+line in `fig02_score_distribution.py`, which is a visual annotation only.
+
+#### `category_ablation.py` — Section 4.5.4
+
+Only the two baseline counts move; every reported statistic is unchanged.
+
+| Field | Before | After |
+|---|---:|---:|
+| `n_hp_baseline` | 6,409 | **6,411** |
+| `n_hp_ablated` | 6,275 | **6,277** |
+| `bldg_spearman_rho` | 0.992377 | 0.992377 |
+| `grid_spearman_rho` | 0.990315 | 0.990315 |
+| `n_hp_to_nonhp` | 147 | 147 |
+| `n_nonhp_to_hp` | 13 | 13 |
+| `n_changes` | 160 | 160 |
+| `change_rate_pct` | 0.848581 | 0.848581 |
+| `mean_abs_diff` | 0.279715 | 0.279715 |
+
+The comparison operator was also aligned from `>` to `>=` to match the pipeline.
+This changes nothing here — no building scores exactly q66 — but removes a
+second latent source of off-by-two.
+
+#### `height_proxy_sensitivity.py` — Section 4.5.3, Table S3
 
 `height_proxy_sensitivity.py` carried `BASELINE_Q66 = 45.513`, a rounded literal.
 The true q66 is 45.51261227233157, so the rounded value sat *above* the real

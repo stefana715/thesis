@@ -128,7 +128,7 @@ version before submission.
 | `src/sensitivity/grid_size_sensitivity.py` | 4.5.1 | Grid mean score 44.343–46.207 across 250/500/750/1000 m (spread 4.204% of minimum) |
 | `src/sensitivity/threshold_sensitivity.py` | 4.5.2 | High-potential count vs quantile cutoff, q50–q80 |
 | `src/sensitivity/height_proxy_sensitivity.py` | 4.5.3, Table S3 | ±30% height perturbation: mean score −0.6986% / +0.4129%; HP count −7.0348% / +4.1959% (baseline 6,411; q66 derived at runtime, not hard-coded) |
-| `src/sensitivity/category_ablation.py` | 4.5.4 | Building ρ = 0.992377, grid ρ = 0.990315, 160 buildings changed (0.849%), mean abs diff 0.280 |
+| `src/sensitivity/category_ablation.py` | 4.5.4 | Building ρ = 0.992377, grid ρ = 0.990315, 160 buildings changed (0.849%), mean abs diff 0.280; baseline 6,411 HP → 6,277 ablated (q66 derived at runtime) |
 | `src/sensitivity/weight_sensitivity.py` | 4.4.4, 4.4.6 | Weight variants W1–W4; minimum pairwise ρ = 0.958726; area-only vs baseline: building ρ = 0.971907, grid ρ = 0.941782, 702 buildings change tier (94.53% retained, Jaccard 0.8962) |
 
 ### Validation

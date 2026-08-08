@@ -19,7 +19,7 @@ Metrics
 -------
 - Building-level Spearman ρ between conditions
 - Grid-level (500 m) Spearman ρ of grid mean rankings
-- Buildings that change high-potential classification (using q66 = 45.513)
+- Buildings that change high-potential classification (q66 derived at runtime)
 - Mean absolute score difference (overall and per category)
 
 Outputs
@@ -51,7 +51,11 @@ from scipy import stats
 
 W_AREA, W_HEIGHT = 0.65, 0.35
 CATEGORY_MULTIPLIERS = {"commercial": 1.10, "residential": 1.00, "mixed_unknown": 0.95}
-Q66_THRESHOLD = 45.513
+# Tier boundary — derived at runtime from the pipeline's own scores, never
+# hard-coded. The previous literal 45.513 was the rounded q66; the true value is
+# 45.51261227233157, so the rounded form sat above the real boundary and reported
+# a baseline high-potential count of 6,409 against the 6,411 used elsewhere.
+Q66_QUANTILE = 0.66
 
 CAT_COLORS  = {"commercial": "#e6550d", "residential": "#3182bd", "mixed_unknown": "#756bb1"}
 CHANGE_COLORS = {
@@ -106,6 +110,7 @@ def plot_results(
     score_with: pd.Series,
     score_without: pd.Series,
     change_label: pd.Series,
+    q66: float,
     figure_dir: Path,
 ) -> None:
 
@@ -129,9 +134,9 @@ def plot_results(
     lims = [0, 100]
     ax.plot(lims, lims, color="gray", linewidth=0.8, linestyle="--", label="y = x")
     # Mark q66 threshold
-    ax.axhline(Q66_THRESHOLD, color="black", linewidth=0.6, linestyle=":", alpha=0.6,
-               label=f"q66 = {Q66_THRESHOLD:.1f}")
-    ax.axvline(Q66_THRESHOLD, color="black", linewidth=0.6, linestyle=":", alpha=0.6)
+    ax.axhline(q66, color="black", linewidth=0.6, linestyle=":", alpha=0.6,
+               label=f"q66 = {q66:.4f}")
+    ax.axvline(q66, color="black", linewidth=0.6, linestyle=":", alpha=0.6)
 
     rho, _ = stats.spearmanr(score_with, score_without)
     ax.set_xlabel("Score without category adjustment", fontsize=10)
@@ -178,7 +183,7 @@ def plot_results(
     ax.set_ylabel("Number of buildings", fontsize=10)
     ax.set_title(
         "(b) Classification changes by category\n"
-        "(HP = score > q66; ablation removes category multiplier)",
+        "(HP = score >= q66; ablation removes category multiplier)",
         fontsize=11,
     )
     ax.legend(fontsize=8)
@@ -266,8 +271,16 @@ def main():
     )
 
     # ── Classification changes ────────────────────────────────────────────────
-    hp_with    = score_with    > Q66_THRESHOLD
-    hp_without = score_without > Q66_THRESHOLD
+    # Threshold derived from the pipeline's own scores, matching
+    # baseline_solar_potential.py, so the baseline count agrees with 6,411.
+    valid_scores = score_with.dropna()
+    if valid_scores.empty:
+        raise ValueError("No valid solar_potential_score values found.")
+    q66 = float(valid_scores.quantile(Q66_QUANTILE))
+    logging.info("Baseline q66 derived from pipeline scores: %.14f", q66)
+
+    hp_with    = score_with    >= q66
+    hp_without = score_without >= q66
 
     hp_to_nonhp  = (hp_with  & ~hp_without).sum()
     nonhp_to_hp  = (~hp_with &  hp_without).sum()
@@ -324,7 +337,7 @@ def main():
     logging.info("Saved CSV: %s", csv_out)
 
     # ── Plot ──────────────────────────────────────────────────────────────────
-    plot_results(gdf, score_with, score_without, change_label, figure_dir)
+    plot_results(gdf, score_with, score_without, change_label, q66, figure_dir)
     logging.info("Done.")
 
 
