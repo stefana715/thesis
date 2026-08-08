@@ -1,0 +1,11 @@
+metric,value
+n_zones,20.0
+n_permutations,1000.0
+null_mean_rho,-0.0005
+null_std_rho,0.0443
+null_ci_lower,-0.0878
+null_ci_upper,0.0837
+observed_mean_this_test,0.9731
+observed_mean_reported,0.95
+percentile_rank,100.0
+p_value,0.0
