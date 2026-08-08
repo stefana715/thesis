@@ -2,14 +2,16 @@
 Validation B: OSM Footprint Quality Assessment (Automated)
 ===========================================================
 Compares OSM building footprint areas against Overture Maps building footprints
-as an independent reference dataset derived from satellite/aerial imagery.
+as a reference dataset.
 
-Strategy:
-  Overture Maps buildings are aggregated from multiple authoritative sources
-  (including Microsoft ML footprints, government cadastre, and others),
-  completely independent of OSM. By spatially matching OSM buildings to Overture
-  buildings and comparing their footprint areas, we can assess the reliability
-  of the primary input data without manual measurement.
+IMPORTANT — this is a consistency check, not an independent accuracy test.
+  Overture aggregates several sources, but for this region its building layer is
+  largely OSM-derived: 96 of the 100 sampled pairs are geometrically identical
+  (IoU = 1.0, centroid distance < 1 um) on both the 2026-03-18.0 and
+  2026-07-22.0 snapshots. Only 4 pairs are genuinely independent; across those
+  the mean IoU is 0.715 and the mean absolute area error is 27.6%. The aggregate
+  figures are therefore dominated by self-comparison and must not be read as an
+  estimate of OSM footprint accuracy.
 
 Matching logic:
   For each sampled OSM building, find the Overture building whose centroid is
@@ -24,10 +26,11 @@ Usage:
      the Changsha bbox, and saves as:
        data/external/overture_buildings_changsha.geojsonl
 
-     The Overture release is PINNED to 2026-03-18.0 (OVERTURE_RELEASE), the
-     snapshot cited in Section 3.11 of the manuscript. Pass --release <tag>
+     The Overture release is PINNED to 2026-07-22.0 (OVERTURE_RELEASE), the
+     snapshot cited in Section 3.11 of the manuscript. The originally cited
+     release 2026-03-18.0 has been retired upstream and returns HTTP 404. Pass --release <tag>
      to override, or --release latest to auto-detect; both will change the
-     reference dataset and may alter the Section 4.8 results.
+     reference dataset and may alter the Section 4.7.6 results.
 
   2. Run the full validation:
        python osm_quality_validation.py
@@ -87,9 +90,9 @@ CHANGSHA_BBOX = (111.8, 27.8, 113.2, 28.6)
 # Overture release — PINNED.
 #
 # This must stay in step with the manuscript, which states
-# "Overture Maps (release 2026-03-18.0)" in Section 3.11. Auto-detecting the
+# "Overture Maps (release 2026-07-22.0)" in Section 3.11. Auto-detecting the
 # latest release would silently re-point the reference dataset at a different
-# snapshot and break reproducibility of the Section 4.8 numbers.
+# snapshot and break reproducibility of the Section 4.7.6 numbers.
 #
 # To deliberately use a different snapshot, pass --release <tag> on the command
 # line, or --release latest to resolve the newest tag via _get_latest_release().
@@ -128,7 +131,7 @@ def _get_latest_release():
         url = "https://stac.overturemaps.org/catalog.json"
         with urlopen(url, timeout=20) as r:
             catalog = json.load(r)
-        return catalog.get("latest", "2026-03-18.0")
+        return catalog.get("latest", OVERTURE_RELEASE)
 
 
 def _find_building_parquet_files(release, bbox):
@@ -715,7 +718,7 @@ def main():
     if release == "latest":
         release = _get_latest_release()
         logging.warning("Using auto-detected release %s instead of the pinned "
-                        "%s — Section 4.8 numbers may not reproduce.",
+                        "%s — Section 4.7.6 numbers may not reproduce.",
                         release, OVERTURE_RELEASE)
 
     if args.download_only:

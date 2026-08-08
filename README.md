@@ -140,14 +140,14 @@ version before submission.
 | `src/validation/benchmark_robustness.py` | 4.7 | 20 stratified zones, mean ρ = 0.950000; grid 807 ρ = 0.431304 |
 | `src/validation/benchmark_param_sensitivity.py` | 4.7 | Shading radius / roof factor / shading coefficient variants |
 | `random_baseline_validation_v2.py` | 4.7 | Permutation null, 95% CI [−0.0878, +0.0837], p < 0.001 |
-| `osm_quality_validation.py` | 3.11, 4.8 | OSM vs Overture, release **2026-07-22.0**: 100/100 matched, mean IoU 0.989, r = 0.998, ρ = 0.999, MAPE 1.1%, 2 buildings beyond ±20% |
-| `osm_quality_validation.py --from-archive` | 4.8 | Same statistics recomputed from `data/external/osm_quality_match_archive.geojson`, no network required |
+| `osm_quality_validation.py` | 3.11, 4.7.6 | OSM vs Overture, release **2026-07-22.0**: 100/100 matched, mean IoU 0.989, r = 0.998, ρ = 0.999, MAPE 1.1%, 2 buildings beyond ±20% |
+| `osm_quality_validation.py --from-archive` | 4.7.6 | Same statistics recomputed from `data/external/osm_quality_match_archive.geojson`, no network required |
 
 ### Revision audit → Supplementary Material
 
 | Script | Output | Produces |
 |---|---|---|
-| `src/validation/benchmark_area_confound.py` | SI Table A | Partial and unit-area correlations controlling for footprint area |
+| `src/validation/benchmark_area_confound.py` | 4.7.5, SI Table A | Partial and unit-area correlations controlling for footprint area |
 | `src/validation/proxy_composition_diagnostics.py` | SI text | Height-proxy composition, score-component variance, area-only counterfactual |
 | `src/validation/revision_audit.py` | audit CSVs | Provenance hunt across 39 correlation and 18 overlap definitions; priority-grid generation share; Overture independence check |
 | `src/validation/si_tables_and_shading_scope.py` | SI Tables A–B, Figure S4 | Height degeneracy vs benchmark agreement (ρ = +0.9769, p = 1.66×10⁻¹³); shading scope by density quintile |

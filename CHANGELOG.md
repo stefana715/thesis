@@ -7,6 +7,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [1.5.0] — 2026-08-09
 
+### Documentation — Section 4.7 renumbering
+
+A new subsection **4.7.5 Area confounding in the benchmark** was inserted, so
+the following subsections shift by one:
+
+| Content | Was | Now |
+|---|---|---|
+| Area confounding in the benchmark | — (new) | **4.7.5** |
+| OSM–Overture footprint comparison | 4.7.5 | **4.7.6** |
+| Cross-study comparison | 4.7.6 | **4.7.7** |
+
+All references in this repository are updated to the new numbering. Earlier
+notes referring to the OSM–Overture check as "Section 4.8" were wrong under any
+numbering and are corrected to 4.7.6. Files touched: `README.md`, `CHANGELOG.md`,
+`osm_quality_validation.py`, `src/validation/benchmark_area_confound.py`.
+`random_baseline_validation_v2.py` cites 4.7.3, which is unaffected.
+
+### Corrected — stale statements in `osm_quality_validation.py`
+
+Adopting release 2026-07-22.0 (see 1.4.0) left three contradictions in the same
+file, now fixed:
+
+- the module docstring and the `OVERTURE_RELEASE` comment both still said the
+  release was pinned to 2026-03-18.0;
+- the `_get_latest_release()` fallback still defaulted to the retired
+  2026-03-18.0 tag, and now falls back to `OVERTURE_RELEASE`.
+
+The header also described Overture as "completely independent of OSM" and framed
+the script as assessing OSM footprint reliability. This repository's own results
+contradict that: 96 of 100 sampled pairs are geometrically identical on both
+snapshots. The header now states plainly that this is a consistency check rather
+than an independent accuracy test, and records the four genuinely independent
+pairs (mean IoU 0.715, mean absolute area error 27.6%).
+
 ### Added
 
 #### 500 m grid product is now tracked
@@ -175,10 +209,10 @@ dataset at whatever snapshot happened to be current. The release is now pinned:
 
 matching the snapshot cited in Section 3.11 of the manuscript. Auto-detection is
 retained as an opt-in fallback, reachable only via `--release latest`, which
-logs a warning that Section 4.8 may not reproduce. `--release <tag>` selects an
+logs a warning that Section 4.7.6 may not reproduce. `--release <tag>` selects an
 explicit alternative.
 
-### Known issue — Section 4.8 inputs are no longer retrievable
+### Known issue — Section 4.7.6 inputs are no longer retrievable
 
 The pinned snapshot **cannot be re-downloaded**. Overture retains only recent
 releases, and 2026-03-18.0 has been aged out upstream:
@@ -199,7 +233,7 @@ and no copy survives on disk.
 
 Consequences:
 
-- The Section 4.8 results remain available and are committed
+- The Section 4.7.6 results remain available and are committed
   (`outputs/validation/osm_quality_results.csv`,
   `osm_quality_summary.csv`, `figure/osm_quality_scatter.png`):
   100/100 matched, mean IoU 0.978, r = 0.998, ρ = 0.997, MAPE 1.1%,

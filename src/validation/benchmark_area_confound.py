@@ -4,6 +4,9 @@ benchmark_area_confound.py
 
 Circularity / confounding check for the pvlib benchmark validation.
 
+Supports manuscript Section 4.7.5 (Area confounding in the benchmark) and
+Supplementary Table A.
+
 Motivation
 ----------
 `benchmark_robustness.py` reports a mean per-zone Spearman ρ of ~0.95 between the
