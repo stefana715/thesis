@@ -29,7 +29,115 @@ Create a Python environment and install dependencies from:
 
 ```bash
 pip install -r requirements.txt
-matplotlib
-scikit-learn
-pyyaml
-jupyter
+```
+
+Core packages: geopandas, shapely, pyproj, osmnx, rasterio, pvlib, pandas,
+numpy, scipy, matplotlib, scikit-learn, pyyaml, jupyter.
+
+---
+
+## Manuscript mapping
+
+Which script produces which reported number, table, or figure. Section numbers
+follow the working manuscript and should be re-checked against the final
+version before submission.
+
+### Pipeline
+
+| Script | Manuscript section | Produces |
+|---|---|---|
+| `src/data/download_osm_buildings.py` | Methods — data acquisition | 33,374 raw OSM buildings |
+| `src/features/building_height_proxy.py` | Methods — height proxy | Four-level height cascade; urban-core split 654 / 562 / 17,587 / 52 |
+| `src/features/extract_phase1_urban_core.py` | Methods — study area | 18,855 urban-core buildings (56.50% of 33,374) |
+| `src/models/baseline_solar_potential.py` | Methods — scoring; Results 4.1–4.2 | `solar_potential_score`; mean 43.885; q33 = 41.797, q66 = 45.513; 6,411 high-potential (34.002%) |
+| `src/analysis/grid_solar_aggregation.py` | Results 4.3 | 500 m grid; 671 occupied of 1,722; grid mean score 13.017–72.571 |
+| `src/planning/planning_metrics.py` | 3.9, Results 4.4 | 8.4829 km² deployable; 1,764.4426 GWh/yr; 1,006.2616 kt CO₂/yr; 146 priority grids (21.759% of occupied) |
+| `src/visualization/fig01–fig08_*.py` | Figures 1–8 | Study-area, distribution, classification, grid and flowchart figures |
+
+### Sensitivity analyses
+
+| Script | Manuscript section | Produces |
+|---|---|---|
+| `src/sensitivity/grid_size_sensitivity.py` | 4.5.1 | Grid mean score 44.343–46.207 across 250/500/750/1000 m (spread 4.204% of minimum) |
+| `src/sensitivity/threshold_sensitivity.py` | 4.5.2 | High-potential count vs quantile cutoff, q50–q80 |
+| `src/sensitivity/height_proxy_sensitivity.py` | 4.5.3 | ±30% height perturbation: mean score −0.699% / +0.413%; HP count −7.006% / +4.228% |
+| `src/sensitivity/category_ablation.py` | 4.5.4 | Building ρ = 0.992377, grid ρ = 0.990315, 160 buildings changed (0.849%), mean abs diff 0.280 |
+| `src/sensitivity/weight_sensitivity.py` | 4.4.4, 4.4.6 | Weight variants W1–W4; minimum pairwise ρ = 0.958726; area-only vs baseline: building ρ = 0.971907, grid ρ = 0.941782, 702 buildings change tier (94.53% retained, Jaccard 0.8962) |
+
+### Validation
+
+| Script | Manuscript section | Produces |
+|---|---|---|
+| `src/analysis/gsa_external_validation.py` | 4.6 | Grid score vs Global Solar Atlas GHI, ρ = 0.2033; intra-urban GHI spread 2.736% |
+| `src/validation/pvlib_benchmark_validation.py` | 4.7 | Three initial zones, per-zone ρ ≥ 0.965217 (pooled ρ = 0.584897) |
+| `src/validation/benchmark_robustness.py` | 4.7 | 20 stratified zones, mean ρ = 0.950000; grid 807 ρ = 0.431304 |
+| `src/validation/benchmark_param_sensitivity.py` | 4.7 | Shading radius / roof factor / shading coefficient variants |
+| `random_baseline_validation_v2.py` | 4.7 | Permutation null, 95% CI [−0.0878, +0.0837], p < 0.001 |
+| `osm_quality_validation.py` | 4.8 | OSM vs Overture: 100/100 matched, mean IoU 0.978, r = 0.998, ρ = 0.997, MAPE 1.1%, 3 buildings beyond ±20% |
+
+### Revision audit → Supplementary Material
+
+| Script | Output | Produces |
+|---|---|---|
+| `src/validation/benchmark_area_confound.py` | SI Table A | Partial and unit-area correlations controlling for footprint area |
+| `src/validation/proxy_composition_diagnostics.py` | SI text | Height-proxy composition, score-component variance, area-only counterfactual |
+| `src/validation/revision_audit.py` | audit CSVs | Provenance hunt across 39 correlation and 18 overlap definitions; priority-grid generation share; Overture independence check |
+| `src/validation/si_tables_and_shading_scope.py` | SI Tables A–B, Figure S4 | Height degeneracy vs benchmark agreement (ρ = +0.9769, p = 1.66×10⁻¹³); shading scope by density quintile |
+
+---
+
+## Known limitations
+
+These are properties of the method and the input data, established by the
+scripts under `src/validation/`. They constrain how the outputs may be read.
+
+**Height proxy is largely a constant.** 93.275% of the 18,855 urban-core
+buildings take a building-type default height rather than an observed one, and
+89.764% take the single value 9.0 m (residential default, 3 storeys × 3.0 m).
+The 25th, 50th and 75th percentiles of `height_proxy_m` are all 9.0. The
+0.35-weighted height term therefore contributes 12.437% of the variance in
+`base_score`, against 80.366% for the area term — the nominal weight overstates
+the height component's real influence.
+
+**The shading heuristic almost never fires.** Across all 671 occupied cells,
+the inter-building shading term is triggered for only 3.87% of buildings; the
+figure rises from 0.84% to 4.50% between the lowest and highest building-density
+quintile, so it is low everywhere. The binding constraint is height degeneracy,
+not spatial density: the trigger requires a *taller* neighbour within 50 m, and
+89.764% of buildings share one height value. Even in the densest quintile
+(mean nearest neighbour 29.8 m, ~5 neighbours within 50 m) the trigger rate is
+4.50%. Shading is consequently not an effective discriminator between buildings
+in this framework, and the benchmark's rank correlations are insensitive to the
+shading radius and coefficient because the code path is rarely reached.
+
+**The pvlib benchmark is an internal consistency check, not independent
+validation.** It uses a single-point Ineichen clear-sky irradiance
+(2,158.8 kWh/m²/yr, roughly 79% above the Global Solar Atlas value of
+1,203.8 kWh/m²/yr for the same area), tilt = 0° with no transposition, no
+azimuth, and no time series. Building-level yield reduces to
+`footprint_area × shading × constant`, so once footprint area is controlled the
+agreement disappears: mean per-zone partial Spearman ρ = −0.0219, and in 17 of
+20 zones the partial correlation is undefined because `rank(yield)` is fully
+determined by `rank(area)`. The headline mean ρ of 0.950 is numerically almost
+identical to ρ(score, area) = 0.951. Agreement per zone tracks height
+degeneracy closely (ρ = +0.977 against the modal-height share, p = 1.7×10⁻¹³).
+
+**The OSM–Overture comparison is largely a self-comparison.** Of 100 sampled
+pairs, 96 are geometrically identical (IoU = 1.0, centroid distance < 1 µm) and
+78 match to exactly zero area difference, reflecting Overture's OSM provenance
+for this region. Only 4 pairs are genuinely independent; across those the mean
+IoU is 0.458 and the mean absolute area error is 28.2%. The reported aggregate
+figures (mean IoU 0.978, MAPE 1.1%) are dominated by the identical pairs and
+should not be read as an accuracy estimate.
+
+**The annual irradiance constant is not derived here.** `planning_metrics.py`
+applies 1,300 kWh/m²/yr uniformly to every building. The value is hard-coded;
+no retrieval code or source dataset exists in this repository, so its provenance
+must be established in the manuscript.
+
+**Two reported figures could not be reproduced.** A building-level
+ρ = 0.983 does not arise from any of 39 correlation definitions tested
+(the reproducible value is 0.971907), and a priority-grid overlap above 90%
+arises only from a superseded fixed-threshold tier definition that inflates the
+comparison set from 146 to 383 cells (the corrected value is 85.62%,
+Jaccard 0.8013). See `CHANGELOG.md`.
